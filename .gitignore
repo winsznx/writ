@@ -30,3 +30,6 @@ yarn-error.log*
 /tmp/
 coverage/
 .cache/
+
+# --- internal: design research, scratch, never shipped ---
+internal/
