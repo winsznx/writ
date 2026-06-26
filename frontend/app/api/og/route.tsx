@@ -49,7 +49,7 @@ export function GET() {
               maxWidth: 980,
             }}
           >
-            Keep your tokenized asset compliant for life — without touching investor PII.
+            Keep your tokenized asset compliant for life, without touching investor PII.
           </div>
           <div style={{ fontSize: 28, color: "#4a5567", maxWidth: 900 }}>
             Provably eligible · continuously re-screened · blocked on-chain.

@@ -17,7 +17,7 @@ export default function IssuerDashboard() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Issuer control room</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          A compliant holder book with zero investor PII on screen — only credential status and
+          A compliant holder book with zero investor PII on screen, just credential status and
           pseudonymous nullifiers.
         </p>
       </header>
@@ -46,7 +46,7 @@ export default function IssuerDashboard() {
       <section>
         <SectionHeading
           title="Holder roster"
-          note="No identities — status & nullifier only"
+          note="No identities, status & nullifier only"
         />
         <Card className="mt-4 overflow-hidden">
           <div className="overflow-x-auto">

@@ -44,7 +44,7 @@ const SCENES: Scene[] = [
     code: "ok",
     caption: {
       lead: "An eligible holder, a compliant transfer.",
-      rest: "Settled on-chain in one block — and the issuer never touched a passport.",
+      rest: "Settled on-chain in one block, and the issuer never touched a passport.",
     },
     cta: "Send a compliant transfer",
   },
@@ -63,7 +63,7 @@ const SCENES: Scene[] = [
     code: "revert 159",
     caption: {
       lead: "The holder's name appears nowhere.",
-      rest: "The chain enforced eligibility against a signed credential — never PII.",
+      rest: "The chain enforced eligibility against a signed credential, never PII.",
     },
     cta: "Send to a sanctioned wallet",
   },

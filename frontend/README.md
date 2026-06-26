@@ -1,12 +1,12 @@
 # frontend/
 
-The Writ web app — **Anu's PRs land here.** Next.js (App Router, TypeScript, Tailwind), scaffolded so the first PR is features, not boilerplate.
+The Writ web app. **Anu's PRs land here.** Next.js (App Router, TypeScript, Tailwind), scaffolded so the first PR is features, not boilerplate.
 
-Build against the spec in [docs/FRONTEND.md](../docs/FRONTEND.md). Surfaces (per [docs/PRD.md](../docs/PRD.md) §15–§16):
+Build against the spec in [docs/FRONTEND.md](../docs/FRONTEND.md). Surfaces (per [docs/PRD.md](../docs/PRD.md) §15-§16):
 
-- **Issuer dashboard** — holder roster, eligibility rule sets, revocations.
-- **Investor proving flow** — prove eligibility in ZK, no document upload.
-- **Regulator disclosure view** — selective-disclosure verification.
+- **Issuer dashboard**: holder roster, eligibility rule sets, revocations.
+- **Investor proving flow**: prove eligibility in ZK, no document upload.
+- **Regulator disclosure view**: selective-disclosure verification.
 
 ## Develop
 
@@ -21,10 +21,10 @@ npm run lint  # eslint
 
 | Route | What it is |
 | --- | --- |
-| `/` | Landing — hero, the two pains, how-it-works, the on-chain "DENIED" demo, differentiation, trust flex, verticals, the honest ZK claim, Built-on-Casper, CTA |
+| `/` | Landing: hero, the two pains, how-it-works, the on-chain "DENIED" demo, differentiation, trust flex, verticals, the honest ZK claim, Built-on-Casper, CTA |
 | `/app` | Wallet-gated app shell + surface switcher |
-| `/app/issuer` | Compliance control room — pseudonymous holder roster, rule set, re-screen status, officer actions, audit trail |
-| `/app/investor` | ZK proving stepper — "your documents never leave your device" |
+| `/app/issuer` | Compliance control room: pseudonymous holder roster, rule set, re-screen status, officer actions, audit trail |
+| `/app/investor` | ZK proving stepper: "your documents never leave your device" |
 | `/app/regulator` | Selective-disclosure request + verdict |
 | `/docs` | Docs index (Mintlify-standard house convention) |
 | `/api/og` | Dynamic OG image (`next/og`) |
@@ -52,6 +52,6 @@ components.
 
 ## Notes
 
-- The dashboards run on **typed mocks** (`lib/mocks.ts`) for scaffolding during parallel dev. Privacy-by-design: holders are shown as pseudonymous nullifiers — never PII. The shipped demo runs on real on-chain data.
+- The dashboards run on **typed mocks** (`lib/mocks.ts`) for scaffolding during parallel dev. Privacy-by-design: holders are shown as pseudonymous nullifiers, never PII. The shipped demo runs on real on-chain data.
 - Wallet connection in `/app` is **simulated** for the walkthrough (persisted in `sessionStorage`); wire CSPR.click when the SDK lands.
 - Light-first by decision; dark mode deferred.

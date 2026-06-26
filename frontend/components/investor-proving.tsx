@@ -17,7 +17,7 @@ export function InvestorProving() {
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Prove eligibility</h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-muted">
           Prove you&apos;re eligible to hold the asset without uploading a single document.
-          Your claims are proven in zero-knowledge — they never leave your device.
+          Your claims are proven in zero-knowledge. They never leave your device.
         </p>
       </header>
 

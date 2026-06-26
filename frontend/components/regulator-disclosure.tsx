@@ -22,7 +22,7 @@ export function RegulatorDisclosure() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Disclosure & verification</h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-muted">
-          Verify a single compliance fact against the on-chain commitment — without exposing the
+          Verify a single compliance fact against the on-chain commitment, without exposing the
           rest of the book.
         </p>
       </header>
@@ -94,8 +94,8 @@ export function RegulatorDisclosure() {
                 <Row term="Commitment"><Mono>0x4f2a…c19b</Mono></Row>
               </dl>
               <p className="text-xs leading-relaxed text-ink-subtle">
-                Verified against the on-chain commitment. Nothing else about this holder — or any
-                other holder — was revealed.
+                Verified against the on-chain commitment. Nothing else about this holder, or any
+                other holder, was revealed.
               </p>
             </div>
           )}

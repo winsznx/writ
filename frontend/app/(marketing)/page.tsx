@@ -8,7 +8,7 @@ const STEPS = [
   {
     n: "01",
     title: "Prove privately",
-    body: "The investor proves eligibility in zero-knowledge — accredited, in-jurisdiction, not sanctioned. No document ever leaves their device.",
+    body: "The investor proves eligibility in zero-knowledge: accredited, in-jurisdiction, not sanctioned. No document ever leaves their device.",
   },
   {
     n: "02",
@@ -18,12 +18,12 @@ const STEPS = [
   {
     n: "03",
     title: "Continuously re-screened",
-    body: "An autonomous agent re-screens the whole holder base against live sanctions and accreditation data — and revokes the moment something changes.",
+    body: "An autonomous agent re-screens the whole holder base against live sanctions and accreditation data, and revokes the moment something changes.",
   },
   {
     n: "04",
     title: "Provable to regulators",
-    body: "Any single compliance fact is provable to a regulator on demand via selective disclosure — without exposing the book.",
+    body: "Any single compliance fact is provable to a regulator on demand via selective disclosure, without exposing the book.",
   },
 ];
 
@@ -38,18 +38,18 @@ const VERTICALS = [
 const COMPARE = [
   {
     point: "Investor PII",
-    usual: "Issuer custodies passports & accreditation docs — a breach lawsuit waiting to happen",
+    usual: "Issuer custodies passports & accreditation docs, a breach lawsuit waiting to happen",
     writ: "Never custodied. Eligibility proven in zero-knowledge",
   },
   {
     point: "Screening",
-    usual: "Point-in-time KYC — pass once, in forever",
+    usual: "Point-in-time KYC: pass once, in forever",
     writ: "Continuous runtime re-screening by an autonomous agent",
   },
   {
     point: "Enforcement",
     usual: "Off-chain checks and trust",
-    writ: "Real on-chain CEP-78 transfer filter — denied by default",
+    writ: "Real on-chain CEP-78 transfer filter, denied by default",
   },
 ];
 
@@ -72,7 +72,7 @@ export default function LandingPage() {
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-muted">
               Every holder provably eligible, continuously re-screened, and blocked on-chain the
-              moment they&apos;re not — and your firm never touches a single piece of investor PII.
+              moment they&apos;re not, and your firm never touches a single piece of investor PII.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <ButtonLink href="#demo" size="lg">
@@ -89,7 +89,7 @@ export default function LandingPage() {
         </Container>
       </section>
 
-      {/* Problem — two pains */}
+      {/* Problem: two pains */}
       <section className="border-b border-border py-16 sm:py-24">
         <Container>
           <div data-reveal>
@@ -102,7 +102,7 @@ export default function LandingPage() {
             <Card data-reveal className="p-7">
               <h3 className="text-lg font-semibold text-ink">The honeypot</h3>
               <p className="mt-3 text-[15px] leading-relaxed text-ink-muted">
-                Conventional compliance forces the issuer to custody a mountain of investor PII —
+                Conventional compliance forces the issuer to custody a mountain of investor PII:
                 passports, accreditation, addresses. The data you collect to be compliant becomes
                 the thing that gets you sued. It&apos;s a board-level reason institutions stall on tokenization.
               </p>
@@ -152,7 +152,7 @@ export default function LandingPage() {
             <p className="mt-6 text-[15px] leading-relaxed text-ink-muted">
               The recipient was an active holder until a sanctions list updated. The agent
               re-screened, revoked the credential autonomously, and the very next transfer reverts
-              on-chain — fail-safe by default. The enforcement is real; the identity is invisible.
+              on-chain, fail-safe by default. The enforcement is real; the identity is invisible.
             </p>
             <p className="mt-4 text-sm text-ink-subtle">
               Runs on Casper testnet against a real{" "}
@@ -207,7 +207,7 @@ export default function LandingPage() {
           </div>
           <p data-reveal className="mt-6 text-lg leading-relaxed text-ink-muted">
             Every eligibility decision is published as a proof anyone can verify. A false
-            attestation can be challenged on-chain — and a quorum that signed it gets its bond
+            attestation can be challenged on-chain, and a quorum that signed it gets its bond
             slashed. The expensive cryptographic verification is paid only in a dispute, never on
             the happy path.
           </p>
@@ -227,7 +227,7 @@ export default function LandingPage() {
               Compliance is the pick-axe every RWA vertical needs.
             </h2>
             <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
-              Writ doesn&apos;t pick a vertical — it owns the job every vertical has to solve.
+              Writ doesn&apos;t pick a vertical. It owns the job every vertical has to solve.
             </p>
           </div>
           <div data-reveal className="mt-10 flex flex-wrap gap-3">
@@ -243,13 +243,13 @@ export default function LandingPage() {
         </Container>
       </section>
 
-      {/* How the ZK works — the honest claim */}
+      {/* How the ZK works: the honest claim */}
       <section className="border-b border-border py-16 sm:py-24">
         <Container className="max-w-3xl">
           <div data-reveal>
             <Eyebrow>How the ZK works</Eyebrow>
             <h2 className="mt-4 font-serif text-3xl font-medium tracking-[-0.015em] text-ink sm:text-4xl">
-              The honest claim — stated precisely.
+              The honest claim, stated precisely.
             </h2>
           </div>
           <Card data-reveal className="mt-8 p-7">
@@ -257,12 +257,12 @@ export default function LandingPage() {
               Eligibility is proven in zero-knowledge, verified by a threshold of autonomous
               agents. The chain stores signed credentials, enforces compliance at every transfer
               via a native CEP-78 filter, and exposes published proofs for on-chain fraud
-              challenge — with off-chain selective disclosure to regulators.
+              challenge, with off-chain selective disclosure to regulators.
             </p>
           </Card>
           <p className="mt-5 text-sm leading-relaxed text-ink-subtle">
             We never claim on-chain SNARK verification. On-chain pairing verification isn&apos;t
-            cost-viable on Casper today, so Writ verifies off-chain and commits on-chain — and says
+            cost-viable on Casper today, so Writ verifies off-chain and commits on-chain, and says
             so plainly. Honesty reads as senior.
           </p>
         </Container>
@@ -274,19 +274,19 @@ export default function LandingPage() {
           <div data-reveal>
             <Eyebrow>Built on Casper</Eyebrow>
             <h2 className="mt-4 font-serif text-3xl font-medium tracking-[-0.015em] text-ink sm:text-4xl">
-              The ERC-3643-equivalent for Casper — shipped ahead of the protocol.
+              The ERC-3643-equivalent for Casper, shipped ahead of the protocol.
             </h2>
           </div>
           <p data-reveal className="mt-6 text-[15px] leading-relaxed text-ink-muted">
-            Writ speaks the institutional security-token model — identity, claims, compliance
-            rules, transfer restrictions — on Casper&apos;s native account and weighted-multisig
+            Writ speaks the institutional security-token model (identity, claims, compliance
+            rules, transfer restrictions) on Casper&apos;s native account and weighted-multisig
             model, paying for live compliance data through x402. It sits dead-center on Casper&apos;s
             RWA and compliant-privacy thesis.
           </p>
         </Container>
       </section>
 
-      {/* Final CTA — saturated brand band */}
+      {/* Final CTA: saturated brand band */}
       <section className="px-5 py-16 sm:px-8 sm:py-24">
         <div data-reveal className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-brand px-6 py-16 text-center shadow-[var(--shadow-pop)] sm:py-20">
           <div

@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /*
-  Writ design tokens — derived design system (no token set was supplied with the brief).
-  Register: regulatory-grade modern fintech — calm, restrained, auditable.
+  Writ design tokens. Derived design system (no token set was supplied with the brief).
+  Register: regulatory-grade modern fintech, calm, restrained, auditable.
   Single reserved accent (`enforce`) for the blocked / denied / revoked moments.
   Values live here as CSS custom properties so a supplied token set can override them
   without touching components. Light-first by decision (dark mode deferred).
