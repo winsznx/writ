@@ -26,20 +26,22 @@ export function SiteHeader() {
           </Link>
         </div>
 
-        <nav className="hidden items-center gap-1 md:flex">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              {...("external" in link && link.external
-                ? { target: "_blank", rel: "noreferrer" }
-                : {})}
-              className="rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink hover:bg-surface-muted"
-            >
-              {link.label}
-            </Link>
-          ))}
-          <ButtonLink href="/app" size="sm" className="ml-2">
+        <nav className="hidden items-center gap-2 md:flex">
+          <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface/70 p-1 shadow-[var(--shadow-sm)]">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                {...("external" in link && link.external
+                  ? { target: "_blank", rel: "noreferrer" }
+                  : {})}
+                className="rounded-full px-3.5 py-1.5 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+          <ButtonLink href="/app" size="sm" className="ml-1">
             Launch app
           </ButtonLink>
         </nav>

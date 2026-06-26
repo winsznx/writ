@@ -5,26 +5,26 @@ import { cn } from "@/lib/cn";
 export function Container({
   children,
   className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+  ...props
+}: ComponentProps<"div">) {
   return (
-    <div className={cn("mx-auto w-full max-w-6xl px-5 sm:px-8", className)}>
+    <div className={cn("mx-auto w-full max-w-6xl px-5 sm:px-8", className)} {...props}>
       {children}
     </div>
   );
 }
 
 const buttonBase =
-  "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:pointer-events-none";
+  "inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 active:translate-y-px disabled:opacity-50 disabled:pointer-events-none disabled:active:translate-y-0";
 
 const buttonVariants = {
-  primary: "bg-brand text-ink-onbrand hover:bg-brand-hover",
+  primary:
+    "bg-brand text-ink-onbrand shadow-[var(--shadow-btn)] hover:bg-brand-hover hover:shadow-[var(--shadow-btn-hover)]",
   secondary:
-    "bg-surface text-ink border border-border-strong hover:bg-surface-muted",
+    "bg-surface text-ink border border-border-strong shadow-[var(--shadow-sm)] hover:bg-surface-muted hover:border-ink-subtle",
   ghost: "text-ink-muted hover:text-ink hover:bg-surface-muted",
-  enforce: "bg-enforce text-ink-onbrand hover:bg-enforce-hover",
+  enforce:
+    "bg-enforce text-ink-onbrand shadow-[var(--shadow-enforce-btn)] hover:bg-enforce-hover",
 } as const;
 
 const buttonSizes = {
@@ -33,8 +33,16 @@ const buttonSizes = {
   lg: "h-12 px-6 text-base",
 } as const;
 
-type ButtonVariant = keyof typeof buttonVariants;
-type ButtonSize = keyof typeof buttonSizes;
+export type ButtonVariant = keyof typeof buttonVariants;
+export type ButtonSize = keyof typeof buttonSizes;
+
+export function buttonClass(
+  variant: ButtonVariant = "primary",
+  size: ButtonSize = "md",
+  className?: string,
+) {
+  return cn(buttonBase, buttonVariants[variant], buttonSizes[size], className);
+}
 
 export function ButtonLink({
   variant = "primary",
@@ -49,7 +57,7 @@ export function ButtonLink({
 }) {
   return (
     <Link
-      className={cn(buttonBase, buttonVariants[variant], buttonSizes[size], className)}
+      className={buttonClass(variant, size, className)}
       {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
       {...props}
     />
@@ -65,17 +73,18 @@ export function Button({
   variant?: ButtonVariant;
   size?: ButtonSize;
 }) {
-  return (
-    <button
-      className={cn(buttonBase, buttonVariants[variant], buttonSizes[size], className)}
-      {...props}
-    />
-  );
+  return <button className={buttonClass(variant, size, className)} {...props} />;
 }
 
-export function Eyebrow({ children }: { children: ReactNode }) {
+export function Eyebrow({ children, className, ...props }: ComponentProps<"span">) {
   return (
-    <span className="inline-block text-xs font-semibold uppercase tracking-[0.12em] text-brand">
+    <span
+      className={cn(
+        "inline-block text-xs font-semibold uppercase tracking-[0.12em] text-brand",
+        className,
+      )}
+      {...props}
+    >
       {children}
     </span>
   );
@@ -100,19 +109,14 @@ export function Mono({
   );
 }
 
-export function Card({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function Card({ children, className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cn(
         "rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]",
         className,
       )}
+      {...props}
     >
       {children}
     </div>
