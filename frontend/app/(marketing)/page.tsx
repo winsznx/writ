@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ButtonLink, Card, Container, Eyebrow, Mono } from "@/components/ui";
 import { DemoBlock } from "@/components/landing/demo-block";
+import { ScrollFx } from "@/components/landing/scroll-fx";
 import { SITE } from "@/lib/site";
 
 const STEPS = [
@@ -54,23 +55,24 @@ const COMPARE = [
 
 export default function LandingPage() {
   return (
-    <>
+    <ScrollFx>
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 -top-40 h-80 bg-[radial-gradient(60%_100%_at_50%_0%,var(--brand-subtle),transparent)]"
-        />
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute inset-x-0 -top-32 h-[28rem] bg-[radial-gradient(70%_60%_at_50%_0%,var(--brand-subtle),transparent_70%)]" />
+          <div data-parallax className="absolute -left-24 top-4 h-72 w-72 rounded-full bg-brand-subtle opacity-60 blur-3xl" />
+          <div data-parallax className="absolute -right-20 top-24 h-64 w-64 rounded-full bg-active-subtle opacity-50 blur-3xl" />
+        </div>
         <Container className="relative grid gap-12 py-16 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-16">
-          <div>
+          <div data-reveal>
             <Eyebrow>Privacy-preserving compliance for tokenized RWA</Eyebrow>
-            <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-5xl lg:text-[3.4rem]">
-              Keep your tokenized asset compliant{" "}
-              <span className="text-brand">for life</span> — without touching a single piece of investor PII.
+            <h1 className="mt-5 font-serif text-[2.7rem] font-medium leading-[1.04] tracking-[-0.02em] text-ink sm:text-5xl lg:text-[3.6rem]">
+              Keep tokenized assets compliant{" "}
+              <span className="italic text-brand">for life.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-muted">
-              Every holder provably eligible, continuously re-screened, and blocked on-chain
-              the moment they&apos;re not. Your firm never becomes the honeypot.
+              Every holder provably eligible, continuously re-screened, and blocked on-chain the
+              moment they&apos;re not — and your firm never touches a single piece of investor PII.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <ButtonLink href="#demo" size="lg">
@@ -81,7 +83,7 @@ export default function LandingPage() {
               </ButtonLink>
             </div>
           </div>
-          <div id="hero-demo" className="lg:pl-4">
+          <div id="hero-demo" data-reveal className="lg:pl-4">
             <DemoBlock />
           </div>
         </Container>
@@ -90,12 +92,14 @@ export default function LandingPage() {
       {/* Problem — two pains */}
       <section className="border-b border-border py-16 sm:py-24">
         <Container>
-          <Eyebrow>The problem</Eyebrow>
-          <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            Tokenizing the asset is easy. Staying compliant for its entire life is the blocker.
-          </h2>
+          <div data-reveal>
+            <Eyebrow>The problem</Eyebrow>
+            <h2 className="mt-4 max-w-2xl font-serif text-3xl font-medium tracking-[-0.015em] text-ink sm:text-4xl">
+              Tokenizing the asset is easy. Staying compliant for its entire life is the blocker.
+            </h2>
+          </div>
           <div className="mt-12 grid gap-6 md:grid-cols-2">
-            <Card className="p-7">
+            <Card data-reveal className="p-7">
               <h3 className="text-lg font-semibold text-ink">The honeypot</h3>
               <p className="mt-3 text-[15px] leading-relaxed text-ink-muted">
                 Conventional compliance forces the issuer to custody a mountain of investor PII —
@@ -103,7 +107,7 @@ export default function LandingPage() {
                 the thing that gets you sued. It&apos;s a board-level reason institutions stall on tokenization.
               </p>
             </Card>
-            <Card className="p-7">
+            <Card data-reveal className="p-7">
               <h3 className="text-lg font-semibold text-ink">Point-in-time KYC fails</h3>
               <p className="mt-3 text-[15px] leading-relaxed text-ink-muted">
                 Sanctions lists update. Accreditation lapses. Jurisdictions change rules. &ldquo;Pass
@@ -118,13 +122,15 @@ export default function LandingPage() {
       {/* How it works */}
       <section className="border-b border-border bg-surface py-16 sm:py-24">
         <Container>
-          <Eyebrow>How it works</Eyebrow>
-          <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            One compliance layer, across the asset&apos;s entire on-chain life.
-          </h2>
+          <div data-reveal>
+            <Eyebrow>How it works</Eyebrow>
+            <h2 className="mt-4 max-w-2xl font-serif text-3xl font-medium tracking-[-0.015em] text-ink sm:text-4xl">
+              One compliance layer, across the asset&apos;s entire on-chain life.
+            </h2>
+          </div>
           <ol className="mt-12 grid gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((step) => (
-              <li key={step.n} className="bg-surface p-6">
+              <li key={step.n} data-reveal className="bg-surface p-6">
                 <Mono className="text-brand">{step.n}</Mono>
                 <h3 className="mt-3 text-base font-semibold text-ink">{step.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-ink-muted">{step.body}</p>
@@ -137,9 +143,9 @@ export default function LandingPage() {
       {/* The demo moment */}
       <section id="demo" className="scroll-mt-20 border-b border-border py-16 sm:py-24">
         <Container className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-16">
-          <div>
+          <div data-reveal>
             <Eyebrow>The moment that converts</Eyebrow>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+            <h2 className="mt-4 font-serif text-3xl font-medium tracking-[-0.015em] text-ink sm:text-4xl">
               A sanctioned wallet tries to receive the bond. Writ blocks it on-chain. Nobody ever
               saw their name.
             </h2>
@@ -156,18 +162,22 @@ export default function LandingPage() {
               . Press the button.
             </p>
           </div>
-          <DemoBlock />
+          <div data-reveal>
+            <DemoBlock />
+          </div>
         </Container>
       </section>
 
       {/* Differentiation */}
       <section className="border-b border-border bg-surface py-16 sm:py-24">
         <Container>
-          <Eyebrow>Why Writ</Eyebrow>
-          <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            No honeypot. Real continuity. On-chain enforcement.
-          </h2>
-          <div className="mt-12 overflow-hidden rounded-xl border border-border">
+          <div data-reveal>
+            <Eyebrow>Why Writ</Eyebrow>
+            <h2 className="mt-4 max-w-2xl font-serif text-3xl font-medium tracking-[-0.015em] text-ink sm:text-4xl">
+              No honeypot. Real continuity. On-chain enforcement.
+            </h2>
+          </div>
+          <div data-reveal className="mt-12 overflow-hidden rounded-xl border border-border">
             <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               <div className="bg-surface-muted px-6 py-4 text-xs font-semibold uppercase tracking-[0.1em] text-ink-subtle sm:col-span-3 sm:hidden">
                 Writ vs. the usual way
@@ -189,17 +199,19 @@ export default function LandingPage() {
       {/* Trust flex */}
       <section className="border-b border-border py-16 sm:py-24">
         <Container className="max-w-3xl">
-          <Eyebrow>The trust flex</Eyebrow>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            &ldquo;You can&apos;t lie to it.&rdquo;
-          </h2>
-          <p className="mt-6 text-lg leading-relaxed text-ink-muted">
+          <div data-reveal>
+            <Eyebrow>The trust flex</Eyebrow>
+            <h2 className="mt-4 font-serif text-3xl font-medium italic tracking-[-0.015em] text-ink sm:text-[2.75rem]">
+              &ldquo;You can&apos;t lie to it.&rdquo;
+            </h2>
+          </div>
+          <p data-reveal className="mt-6 text-lg leading-relaxed text-ink-muted">
             Every eligibility decision is published as a proof anyone can verify. A false
             attestation can be challenged on-chain — and a quorum that signed it gets its bond
             slashed. The expensive cryptographic verification is paid only in a dispute, never on
             the happy path.
           </p>
-          <p className="mt-4 text-sm text-ink-subtle">
+          <p data-reveal className="mt-4 text-sm text-ink-subtle">
             Security holds as long as the verifier quorum is honest <em>or</em> a single watcher
             checks during the challenge window. Writ ships an issuer watchtower by default.
           </p>
@@ -209,14 +221,16 @@ export default function LandingPage() {
       {/* Who it's for */}
       <section className="border-b border-border bg-surface py-16 sm:py-24">
         <Container>
-          <Eyebrow>Who it&apos;s for</Eyebrow>
-          <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            Compliance is the pick-axe every RWA vertical needs.
-          </h2>
-          <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
-            Writ doesn&apos;t pick a vertical — it owns the job every vertical has to solve.
-          </p>
-          <div className="mt-10 flex flex-wrap gap-3">
+          <div data-reveal>
+            <Eyebrow>Who it&apos;s for</Eyebrow>
+            <h2 className="mt-4 max-w-2xl font-serif text-3xl font-medium tracking-[-0.015em] text-ink sm:text-4xl">
+              Compliance is the pick-axe every RWA vertical needs.
+            </h2>
+            <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
+              Writ doesn&apos;t pick a vertical — it owns the job every vertical has to solve.
+            </p>
+          </div>
+          <div data-reveal className="mt-10 flex flex-wrap gap-3">
             {VERTICALS.map((v) => (
               <span
                 key={v}
@@ -232,11 +246,13 @@ export default function LandingPage() {
       {/* How the ZK works — the honest claim */}
       <section className="border-b border-border py-16 sm:py-24">
         <Container className="max-w-3xl">
-          <Eyebrow>How the ZK works</Eyebrow>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            The honest claim — stated precisely.
-          </h2>
-          <Card className="mt-8 p-7">
+          <div data-reveal>
+            <Eyebrow>How the ZK works</Eyebrow>
+            <h2 className="mt-4 font-serif text-3xl font-medium tracking-[-0.015em] text-ink sm:text-4xl">
+              The honest claim — stated precisely.
+            </h2>
+          </div>
+          <Card data-reveal className="mt-8 p-7">
             <p className="text-[15px] leading-relaxed text-ink">
               Eligibility is proven in zero-knowledge, verified by a threshold of autonomous
               agents. The chain stores signed credentials, enforces compliance at every transfer
@@ -255,11 +271,13 @@ export default function LandingPage() {
       {/* Built on Casper */}
       <section className="border-b border-border bg-surface py-16 sm:py-24">
         <Container className="max-w-3xl">
-          <Eyebrow>Built on Casper</Eyebrow>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            The ERC-3643-equivalent for Casper — shipped ahead of the protocol.
-          </h2>
-          <p className="mt-6 text-[15px] leading-relaxed text-ink-muted">
+          <div data-reveal>
+            <Eyebrow>Built on Casper</Eyebrow>
+            <h2 className="mt-4 font-serif text-3xl font-medium tracking-[-0.015em] text-ink sm:text-4xl">
+              The ERC-3643-equivalent for Casper — shipped ahead of the protocol.
+            </h2>
+          </div>
+          <p data-reveal className="mt-6 text-[15px] leading-relaxed text-ink-muted">
             Writ speaks the institutional security-token model — identity, claims, compliance
             rules, transfer restrictions — on Casper&apos;s native account and weighted-multisig
             model, paying for live compliance data through x402. It sits dead-center on Casper&apos;s
@@ -268,22 +286,33 @@ export default function LandingPage() {
         </Container>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-20 sm:py-28">
-        <Container className="text-center">
-          <h2 className="mx-auto max-w-3xl text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            Compliant for life. Provable to anyone. PII to no one.
+      {/* Final CTA — saturated brand band */}
+      <section className="px-5 py-16 sm:px-8 sm:py-24">
+        <div data-reveal className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-brand px-6 py-16 text-center shadow-[var(--shadow-pop)] sm:py-20">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_120%_at_50%_0%,rgb(255_255_255/0.16),transparent_70%)]"
+          />
+          <h2 className="relative mx-auto max-w-3xl font-serif text-3xl font-medium tracking-[-0.015em] text-ink-onbrand sm:text-4xl">
+            Compliant for life. Provable to anyone.{" "}
+            <span className="italic">PII to no one.</span>
           </h2>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <ButtonLink href="/app" size="lg">
+          <div className="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              href="/app"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-surface px-6 text-base font-medium text-brand shadow-[var(--shadow-pop)] transition-all hover:bg-surface-muted active:translate-y-px"
+            >
               Launch app
-            </ButtonLink>
-            <ButtonLink href="/docs" variant="secondary" size="lg">
+            </Link>
+            <Link
+              href="/docs"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/30 px-6 text-base font-medium text-ink-onbrand transition-colors hover:bg-white/10 active:translate-y-px"
+            >
               Read the docs
-            </ButtonLink>
+            </Link>
           </div>
-        </Container>
+        </div>
       </section>
-    </>
+    </ScrollFx>
   );
 }
