@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pnpm (repo standardizes on npm)
+pnpm-lock.yaml
+pnpm-workspace.yaml
