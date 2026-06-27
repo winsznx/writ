@@ -7,35 +7,37 @@ import { PROVING_STEPS } from "@/lib/mocks";
 import { cn } from "@/lib/cn";
 import { generateEligibilityProof, commitmentToHex, type ProofResult } from "@/lib/prove";
 import { deployTxUrl } from "@/lib/chain";
-
-function randomAccountHex(): string {
-  const b = new Uint8Array(32);
-  crypto.getRandomValues(b);
-  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
-}
+import { useCsprClick, publicKeyToAccountHash } from "@/lib/csprclick";
+import { ASSET_ID } from "@/lib/chain";
 
 export function InvestorProving() {
+  const { account, signMessage } = useCsprClick();
   const [step, setStep] = useState(0);
   const [proving, setProving] = useState(false);
   const [proof, setProof] = useState<ProofResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [onboard, setOnboard] = useState<{ account: string; deployHash: string } | null>(null);
-  // set by a CSPR.click connect when the wallet SDK is wired; demo account otherwise.
-  const walletAccount: string | null = null;
+  // the CONNECTED wallet is the holder; its account hash binds the credential.
+  const walletPublicKey = account?.public_key ?? null;
+  const walletAccount = walletPublicKey ? publicKeyToAccountHash(walletPublicKey) : null;
   const total = PROVING_STEPS.length;
   const done = step >= total - 1;
   const onProveStep = PROVING_STEPS[step]?.key === "prove";
 
-  // Full onboarding: a wallet account -> issuer witness -> IN-BROWSER proof -> the
-  // server-side 2-of-3 quorum verifies + screens + attests -> a live on-chain credential.
+  // Full onboarding: the CONNECTED wallet -> issuer witness -> IN-BROWSER proof -> the
+  // visitor signs a holder-binding with their own wallet -> the server-side 2-of-3 quorum
+  // verifies + screens + attests -> a live on-chain credential. Quorum signing never
+  // leaves the server; the visitor only ever signs as the holder.
   async function runProof(): Promise<void> {
+    if (!walletAccount || !walletPublicKey) {
+      setError("Connect your Casper wallet to onboard.");
+      return;
+    }
     setProving(true);
     setError(null);
     setOnboard(null);
     try {
-      // demo wallet (a unique account per attempt). With CSPR.click wired, this is the
-      // connected wallet's account hash instead.
-      const account = walletAccount ?? randomAccountHex();
+      const account = walletAccount;
       const cRes = await fetch("/api/claims", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -48,10 +50,29 @@ export function InvestorProving() {
       setProof(result);
       setStep((s) => Math.min(total - 1, s + 1));
 
+      // The visitor signs the holder-binding with their own wallet. Proves control of the
+      // account being attested. Best-effort: a cancelled signature still onboards (the
+      // proof is itself bound to the account-derived witness).
+      const bindMessage = `Writ onboarding — bind ${account} to ${ASSET_ID}`;
+      let bindSignature: string | null = null;
+      try {
+        const sig = await signMessage(bindMessage, walletPublicKey);
+        if (sig && !sig.cancelled) bindSignature = sig.signature;
+      } catch {
+        bindSignature = null;
+      }
+
       const oRes = await fetch("/api/onboard", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ account, proof: result.proof, publicSignals: result.publicSignals }),
+        body: JSON.stringify({
+          account,
+          publicKey: walletPublicKey,
+          bindMessage,
+          bindSignature,
+          proof: result.proof,
+          publicSignals: result.publicSignals,
+        }),
       });
       const ob = (await oRes.json()) as { deployHash?: string; status?: string; error?: string };
       if (!ob.deployHash) throw new Error(ob.error ?? "onboard rejected");
@@ -182,7 +203,7 @@ export function InvestorProving() {
             </Button>
             {onProveStep ? (
               <Button size="md" className="flex-1" disabled={proving} onClick={runProof}>
-                {proving ? "Proving + onboarding…" : "Prove + onboard (demo wallet)"}
+                {proving ? "Proving + onboarding…" : "Prove + onboard"}
               </Button>
             ) : (
               <Button

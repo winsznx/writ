@@ -1,43 +1,21 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "@/components/wordmark";
 import { Button, ButtonLink, Container } from "@/components/ui";
 import { APP_SURFACES } from "@/lib/site";
 import { cn } from "@/lib/cn";
-
-const MOCK_ADDRESS = "0x7a3f…91c4";
-const SESSION_KEY = "writ:connected";
-
-const listeners = new Set<() => void>();
-
-function subscribe(onChange: () => void) {
-  listeners.add(onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    listeners.delete(onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-function getSnapshot() {
-  return sessionStorage.getItem(SESSION_KEY) === "1";
-}
-
-function setConnection(value: boolean) {
-  if (value) sessionStorage.setItem(SESSION_KEY, "1");
-  else sessionStorage.removeItem(SESSION_KEY);
-  listeners.forEach((l) => l());
-}
+import { useCsprClick } from "@/lib/csprclick";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const connected = useSyncExternalStore(subscribe, getSnapshot, () => false);
+  const { configured, ready, account, connect, disconnect } = useCsprClick();
   const pathname = usePathname();
 
-  const connect = () => setConnection(true);
-  const disconnect = () => setConnection(false);
+  const connected = Boolean(account?.public_key);
+  const address = account?.public_key
+    ? `${account.public_key.slice(0, 6)}…${account.public_key.slice(-4)}`
+    : undefined;
 
   if (!connected) {
     return (
@@ -47,15 +25,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 text-center shadow-[var(--shadow-card)]">
             <h1 className="text-xl font-semibold text-ink">Connect your wallet</h1>
             <p className="mt-3 text-sm leading-relaxed text-ink-muted">
-              The Writ app surfaces are wallet-gated. Connect with CSPR.click to continue.
-              No documents or PII are ever requested.
+              The Writ app surfaces are wallet-gated. Connect your Casper wallet with
+              CSPR.click to continue. No documents or PII are ever requested.
             </p>
-            <Button className="mt-6 w-full" onClick={connect}>
-              Connect with CSPR.click
+            <Button
+              className="mt-6 w-full"
+              onClick={connect}
+              disabled={!configured || !ready}
+            >
+              {configured ? (ready ? "Connect with CSPR.click" : "Loading wallet…") : "Wallet unavailable"}
             </Button>
-            <p className="mt-4 text-xs text-ink-subtle">
-              Demo build. Connection is simulated for the walkthrough.
-            </p>
+            {!configured && (
+              <p className="mt-4 text-xs text-ink-subtle">
+                Wallet connect not configured (NEXT_PUBLIC_CSPR_CLICK_APP_ID).
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -64,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <AppTopBar address={MOCK_ADDRESS} onDisconnect={disconnect} />
+      <AppTopBar address={address} onDisconnect={disconnect} />
       <Container className="flex flex-1 flex-col gap-8 py-8 lg:flex-row">
         <nav className="lg:w-56 lg:shrink-0">
           <ul className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-1">

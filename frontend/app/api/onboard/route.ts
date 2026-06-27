@@ -12,6 +12,7 @@ import { buildVisitorWitness } from "@/lib/server/issuer-input";
 import { screen } from "@/lib/server/screen";
 import { submitAttest, placeholderProofBytes } from "@/lib/server/quorum-attest";
 import { rateLimit, capCheck, markOnboarded, isTestnet } from "@/lib/server/guards";
+import { verifyBind } from "@/lib/server/verify-bind";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -28,7 +29,14 @@ export async function POST(req: Request): Promise<Response> {
   if (!isTestnet()) return Response.json({ error: "testnet only" }, { status: 403 });
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "local";
 
-  let body: { account?: unknown; proof?: unknown; publicSignals?: unknown };
+  let body: {
+    account?: unknown;
+    proof?: unknown;
+    publicSignals?: unknown;
+    publicKey?: unknown;
+    bindMessage?: unknown;
+    bindSignature?: unknown;
+  };
   try { body = await req.json(); } catch { return Response.json({ error: "bad json" }, { status: 400 }); }
 
   const account = accountHex(body.account);
@@ -63,6 +71,10 @@ export async function POST(req: Request): Promise<Response> {
     const s = await screen(account.slice(0, 40));
     if (!s.clean) return Response.json({ error: "screening: OFAC SDN hit", screen: s }, { status: 403 });
 
+    // best-effort: confirm the visitor's wallet signed the holder-binding. Non-blocking —
+    // the proof above is already bound to this account's issued witness.
+    const bind = verifyBind(body.publicKey, body.bindMessage, body.bindSignature);
+
     // (5) quorum co-sign + attest
     const proofBytes = await placeholderProofBytes();
     const res = await submitAttest({ holderHex: account, publicSignals: publicSignals as string[], proofBytes, expiry: EXPIRY });
@@ -71,6 +83,7 @@ export async function POST(req: Request): Promise<Response> {
       status: "attested",
       deployHash: res.deployHash,
       commitment: "0x" + res.commitment,
+      bind,
       screen: { source: s.source, listSize: s.listSize },
     });
   } catch (e) {
