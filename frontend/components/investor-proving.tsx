@@ -5,30 +5,57 @@ import { Button, Card, Mono } from "@/components/ui";
 import { StatusBadge } from "@/components/status-badge";
 import { PROVING_STEPS } from "@/lib/mocks";
 import { cn } from "@/lib/cn";
-import {
-  generateEligibilityProof,
-  loadSampleInput,
-  commitmentToHex,
-  type ProofResult,
-} from "@/lib/prove";
+import { generateEligibilityProof, commitmentToHex, type ProofResult } from "@/lib/prove";
+import { deployTxUrl } from "@/lib/chain";
+
+function randomAccountHex(): string {
+  const b = new Uint8Array(32);
+  crypto.getRandomValues(b);
+  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+}
 
 export function InvestorProving() {
   const [step, setStep] = useState(0);
   const [proving, setProving] = useState(false);
   const [proof, setProof] = useState<ProofResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [onboard, setOnboard] = useState<{ account: string; deployHash: string } | null>(null);
+  // set by a CSPR.click connect when the wallet SDK is wired; demo account otherwise.
+  const walletAccount: string | null = null;
   const total = PROVING_STEPS.length;
   const done = step >= total - 1;
   const onProveStep = PROVING_STEPS[step]?.key === "prove";
 
+  // Full onboarding: a wallet account -> issuer witness -> IN-BROWSER proof -> the
+  // server-side 2-of-3 quorum verifies + screens + attests -> a live on-chain credential.
   async function runProof(): Promise<void> {
     setProving(true);
     setError(null);
+    setOnboard(null);
     try {
-      const input = await loadSampleInput();
-      const result = await generateEligibilityProof(input);
+      // demo wallet (a unique account per attempt). With CSPR.click wired, this is the
+      // connected wallet's account hash instead.
+      const account = walletAccount ?? randomAccountHex();
+      const cRes = await fetch("/api/claims", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ account }),
+      });
+      const claims = (await cRes.json()) as { input?: Record<string, unknown>; error?: string };
+      if (!claims.input) throw new Error(claims.error ?? "claims failed");
+
+      const result = await generateEligibilityProof(claims.input);
       setProof(result);
       setStep((s) => Math.min(total - 1, s + 1));
+
+      const oRes = await fetch("/api/onboard", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ account, proof: result.proof, publicSignals: result.publicSignals }),
+      });
+      const ob = (await oRes.json()) as { deployHash?: string; status?: string; error?: string };
+      if (!ob.deployHash) throw new Error(ob.error ?? "onboard rejected");
+      setOnboard({ account, deployHash: ob.deployHash });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -118,6 +145,26 @@ export function InvestorProving() {
             </div>
           )}
 
+          {onboard && (
+            <div className="mt-4 space-y-2 rounded-lg border border-active/40 bg-active-subtle p-4 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-active">Credential live on-chain</span>
+                <span aria-hidden className="text-base">✓</span>
+              </div>
+              <Row term="Holder"><Mono>0x{onboard.account.slice(0, 10)}…</Mono></Row>
+              <Row term="Attest tx">
+                <a href={deployTxUrl(onboard.deployHash)} target="_blank" rel="noreferrer"
+                   className="underline decoration-dotted underline-offset-2 hover:text-active">
+                  <Mono>{onboard.deployHash.slice(0, 10)}… ↗</Mono>
+                </a>
+              </Row>
+              <p className="leading-relaxed text-ink-subtle">
+                The 2-of-3 quorum verified your proof, OFAC-screened, and co-signed an attestation.
+                You can now hold the asset.
+              </p>
+            </div>
+          )}
+
           {error && (
             <p className="mt-4 rounded-md bg-enforce-subtle px-3 py-2 text-xs text-enforce">
               Proof generation failed: {error}
@@ -135,7 +182,7 @@ export function InvestorProving() {
             </Button>
             {onProveStep ? (
               <Button size="md" className="flex-1" disabled={proving} onClick={runProof}>
-                {proving ? "Generating proof…" : "Generate proof"}
+                {proving ? "Proving + onboarding…" : "Prove + onboard (demo wallet)"}
               </Button>
             ) : (
               <Button
