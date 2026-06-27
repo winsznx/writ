@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Mono } from "@/components/ui";
+import { Button, Card, Mono, PageHeader } from "@/components/ui";
 import { StatusBadge } from "@/components/status-badge";
 import { PROVING_STEPS } from "@/lib/mocks";
 import { cn } from "@/lib/cn";
@@ -86,13 +86,16 @@ export function InvestorProving() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Prove eligibility</h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-muted">
-          Prove you&apos;re eligible to hold the asset without uploading a single document.
-          Your claims are proven in zero-knowledge. They never leave your device.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Prove eligibility privately"
+        title="Prove eligibility"
+        description="Prove you're eligible to hold the asset without uploading a single document. Your claims are proven in zero-knowledge — they never leave your device."
+        actions={
+          <span className="inline-flex items-center gap-2 rounded-full border border-active/20 bg-active-subtle px-3 py-1.5 text-xs font-medium text-active">
+            <span aria-hidden>🔒</span> Zero-knowledge
+          </span>
+        }
+      />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_1.1fr] lg:items-start">
         <ol className="space-y-2">

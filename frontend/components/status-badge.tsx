@@ -51,8 +51,8 @@ const STYLES: Record<
   },
   FROZEN: {
     label: "Frozen",
-    className: "bg-enforce-subtle text-enforce border-enforce-border",
-    dot: "bg-enforce",
+    className: "bg-pending-subtle text-pending border-pending/20",
+    dot: "bg-pending",
   },
 };
 

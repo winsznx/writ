@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Card, Mono } from "@/components/ui";
+import { Card, Mono, PageHeader, SectionHeading, StatTile } from "@/components/ui";
 import { StatusBadge, type CredentialStatus } from "@/components/status-badge";
 import { RULE_SET, RE_SCREEN } from "@/lib/mocks";
 import { CONTRACTS, ASSET_ID, deployUrl, deployTxUrl } from "@/lib/chain";
@@ -26,38 +26,30 @@ export default async function IssuerDashboard() {
 
   return (
     <div className="space-y-10">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Issuer control room</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          A compliant holder book with zero investor PII on screen, just credential status and
-          pseudonymous commitments — read live from the on-chain registry.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Compliance control room"
+        title="Issuer control room"
+        description="A compliant holder book with zero investor PII on screen — only credential status and pseudonymous commitments, read live from the on-chain registry."
+        actions={
+          <span className="inline-flex items-center gap-2 rounded-full border border-active/20 bg-active-subtle px-3 py-1.5 text-xs font-medium text-active">
+            <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-active" />
+            Live · CSPR.cloud
+          </span>
+        }
+      />
 
       {error && (
-        <p className="rounded-md bg-enforce-subtle px-4 py-3 text-sm text-enforce">
+        <p className="rounded-lg border border-enforce-border bg-enforce-subtle px-4 py-3 text-sm text-enforce">
           Live registry read unavailable: {error}
         </p>
       )}
 
       {/* Asset overview */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Asset", value: "Acme 2031 Senior Note", sub: ASSET_ID },
-          { label: "Standard", value: "Patched CEP-78", sub: "recipient-aware" },
-          { label: "Credentialed", value: String(roster.length), sub: "live holders" },
-          { label: "NFT contract", value: cep78Short, sub: "testnet.cspr.live", mono: true, href: deployUrl(CONTRACTS.cep78.pkg) },
-        ].map((tile) => (
-          <Card key={tile.label} className="p-5">
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-subtle">{tile.label}</p>
-            <p className={`mt-2 truncate text-lg font-semibold text-ink ${tile.mono ? "font-mono text-base" : ""}`}>
-              {tile.href ? (
-                <a href={tile.href} target="_blank" rel="noreferrer" className="hover:text-brand">{tile.value}</a>
-              ) : tile.value}
-            </p>
-            <p className="mt-0.5 truncate text-xs text-ink-subtle">{tile.sub}</p>
-          </Card>
-        ))}
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile label="Asset" value="Acme 2031 Senior Note" sub={ASSET_ID} />
+        <StatTile label="Standard" value="Real CEP-78" sub="recipient-aware filter" />
+        <StatTile label="Credentialed" value={String(roster.length)} sub="live holders" />
+        <StatTile label="NFT contract" value={cep78Short} sub="testnet.cspr.live" mono href={deployUrl(CONTRACTS.cep78.pkg)} />
       </section>
 
       {/* Holder roster — live */}
@@ -196,15 +188,6 @@ function RosterStatus({ status }: { status: RosterRow["status"] }) {
     );
   }
   return <StatusBadge status={status as CredentialStatus} />;
-}
-
-function SectionHeading({ title, note }: { title: string; note?: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <h2 className="text-base font-semibold text-ink">{title}</h2>
-      {note ? <span className="text-xs text-ink-subtle">{note}</span> : null}
-    </div>
-  );
 }
 
 function Row({ term, children }: { term: string; children: React.ReactNode }) {

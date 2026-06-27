@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Mono } from "@/components/ui";
+import { Button, Card, Mono, PageHeader } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { CONTRACTS, REGULATED_HOLDER, deployUrl, deployTxUrl, accountUrl } from "@/lib/chain";
 import { verifyDisclosure, type DisclosedClaims } from "@/lib/disclosure";
@@ -53,13 +53,11 @@ export function RegulatorDisclosure() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Disclosure & verification</h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-muted">
-          Verify a single compliance fact against the on-chain commitment, without exposing the
-          rest of the book.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Verify disclosures"
+        title="Disclosure & verification"
+        description="Verify a single compliance fact against the on-chain commitment — without exposing the rest of the book."
+      />
 
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <Card className="p-6">

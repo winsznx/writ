@@ -122,3 +122,85 @@ export function Card({ children, className, ...props }: ComponentProps<"div">) {
     </div>
   );
 }
+
+/** Surface page header — serif title, carrying the landing identity into the app. */
+export function PageHeader({
+  eyebrow,
+  title,
+  description,
+  actions,
+  className,
+}: {
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <header className={cn("flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", className)}>
+      <div className="min-w-0">
+        {eyebrow ? <Eyebrow className="mb-2.5">{eyebrow}</Eyebrow> : null}
+        <h1 className="font-serif text-[1.8rem] font-medium leading-[1.1] tracking-[-0.02em] text-ink sm:text-[2.1rem]">
+          {title}
+        </h1>
+        {description ? (
+          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-ink-muted">{description}</p>
+        ) : null}
+      </div>
+      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+    </header>
+  );
+}
+
+/** Section heading with an optional right-aligned note — consistent across surfaces. */
+export function SectionHeading({
+  title,
+  note,
+  className,
+}: {
+  title: ReactNode;
+  note?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-baseline justify-between gap-3", className)}>
+      <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">{title}</h2>
+      {note ? <span className="shrink-0 text-xs text-ink-subtle">{note}</span> : null}
+    </div>
+  );
+}
+
+/** A compact KPI tile for the terminal-style overview rows. */
+export function StatTile({
+  label,
+  value,
+  sub,
+  href,
+  mono,
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: ReactNode;
+  href?: string;
+  mono?: boolean;
+}) {
+  const valueEl = (
+    <span className={cn("truncate text-lg font-semibold tracking-[-0.01em] text-ink", mono && "font-mono text-base")}>
+      {value}
+    </span>
+  );
+  return (
+    <Card className="flex flex-col gap-1 p-4 transition-colors hover:border-border-strong sm:p-5">
+      <p className="text-[11px] font-medium uppercase tracking-[0.09em] text-ink-subtle">{label}</p>
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer" className="truncate hover:text-brand">
+          {valueEl}
+        </a>
+      ) : (
+        valueEl
+      )}
+      {sub ? <p className="truncate text-xs text-ink-subtle">{sub}</p> : null}
+    </Card>
+  );
+}
