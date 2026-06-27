@@ -1,0 +1,59 @@
+# This workflow will do a clean install of node dependencies, build the source code and run tests across different versions of node
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
+
+name: publish-casper-cep78-js-client
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        node-version: [22.x]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          components: rustfmt, clippy
+      # Needed for gcc install
+      - run: sudo apt update && sudo apt install -y build-essential wabt
+      - run: make prepare
+      - run: make build-all-contracts
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install Dependencies
+        working-directory: ./client-js
+        run: npm install
+
+      - name: Generate WASMS
+        working-directory: ./client-js
+        run: npm run generate:wasm
+
+      - name: build
+        working-directory: ./client-js
+        run: npm run build
+
+      - name: test
+        working-directory: ./client-js
+        run: npm run test:unit
+
+      - name: Publish to NPM
+        working-directory: ./client-js
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

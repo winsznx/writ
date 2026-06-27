@@ -33,7 +33,7 @@ frontend/    Next.js app per docs/FRONTEND.md — frontend PRs land here
 
 - **Contracts:** Odra 2.8.x + **patched CEP-78** (Casper 2.0, `vm_casper_v1`)
 - **ZK:** Circom v2 / snarkjs / **Groth16-BN254** prover, **arkworks** (`ark-groth16` / `ark-bn254`) verifier (off-chain, <10ms)
-- **Agent:** Railway, MCP-driven (CSPR.cloud, Cordon), **x402** facilitator for paid compliance data
+- **Agent:** Railway, MCP-driven (CSPR.cloud), **OFAC SDN** sanctions screening
 - **Frontend:** Next.js (App Router, TypeScript, Tailwind)
 - **Infra:** casper-client 5.0.1 (`put-deploy`), Casper testnet, testnet.cspr.live explorer
 

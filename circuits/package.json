@@ -1,0 +1,12 @@
+{
+  "name": "writ-circuits",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Writ eligibility ZK circuits (Circom + Groth16-BN254)",
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
+    "ffjavascript": "^0.3.1",
+    "snarkjs": "^0.7.5"
+  }
+}

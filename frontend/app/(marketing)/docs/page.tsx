@@ -6,13 +6,13 @@ import { SITE } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Docs",
   description:
-    "Writ documentation — architecture, the honest ZK claim, integration, and the agent surface.",
+    "Writ documentation: architecture, the honest ZK claim, integration, and the agent surface.",
 };
 
 const SECTIONS = [
   { title: "Quickstart", body: "Add Writ to a tokenized asset and onboard your first credentialed holder." },
   { title: "Architecture", body: "The off-chain-verify, on-chain-commit model: quorum, Credential Registry, and the patched CEP-78 filter." },
-  { title: "The honest claim", body: "What Writ proves on-chain and what it doesn't — stated precisely, never overclaimed." },
+  { title: "The honest claim", body: "What Writ proves on-chain and what it doesn't, stated precisely and never overclaimed." },
   { title: "Integration", body: "How an issuer wires Writ into a CEP-78 asset: mint gate, transfer filter, rule sets." },
   { title: "Agent & MCP surface", body: "The autonomous verifier quorum, re-screen scheduler, and Cordon / x402 screening sources." },
   { title: "FAQ", body: "Trust model, watchers, revocation latency, and the limits we own." },
@@ -35,7 +35,7 @@ export default function DocsPage() {
         <p className="mt-3 text-[15px] leading-relaxed text-ink">
           Eligibility is proven in zero-knowledge, verified by a threshold of autonomous agents.
           The chain stores signed credentials, enforces compliance at every transfer via a native
-          CEP-78 filter, and exposes published proofs for on-chain fraud challenge — with off-chain
+          CEP-78 filter, and exposes published proofs for on-chain fraud challenge, with off-chain
           selective disclosure to regulators. We never claim on-chain SNARK verification.
         </p>
       </Card>

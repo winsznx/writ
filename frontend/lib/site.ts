@@ -4,9 +4,9 @@ export const SITE = {
   url: "https://writ.finance",
   tagline: "Compliance that never touches investor PII.",
   description:
-    "Writ keeps a tokenized real-world asset compliant for life — every holder provably eligible, continuously re-screened, blocked on-chain the moment they're not — without the issuer ever touching a single piece of investor PII.",
+    "Writ keeps a tokenized real-world asset compliant for life. Every holder is provably eligible, continuously re-screened, and blocked on-chain the moment they're not, while the issuer never touches a single piece of investor PII.",
   oneLiner:
-    "Keep your tokenized asset compliant for life — every holder provably eligible, continuously re-screened, blocked on-chain the moment they're not. Your firm never touches a single piece of investor PII.",
+    "Keep your tokenized asset compliant for life. Every holder is provably eligible, continuously re-screened, and blocked on-chain the moment they're not. Your firm never touches a single piece of investor PII.",
   github: "https://github.com/winsznx/writ",
   csprFans: "https://cspr.fans",
   explorer: "https://testnet.cspr.live",

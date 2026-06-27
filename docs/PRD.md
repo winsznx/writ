@@ -77,11 +77,11 @@ Investor ──proof + public inputs──┐
                           │ Verifier Quorum  │sign,│   flag, expiry, quorum sigs}  │
                           │ (N-of-M agents)  │tx   │  published proof (challenge)  │
                           │ ark-groth16 verify─────▶│  bonds · RBAC · nullifier set │
-                          │ + screen(Cordon, │    └───────────────┬──────────────┘
-                          │   x402 OFAC)     │                    │ reads state
+                          │ + screen(OFAC    │    └───────────────┬──────────────┘
+                          │   SDN)           │                    │ reads state
                           └────────┬─────────┘                    ▼
-                                   │ pays x402        ┌──────────────────────────────┐
-                    Cordon / x402 OFAC (live)         │ Writ Token (patched CEP-78,  │
+                                   │ fetch SDN        ┌──────────────────────────────┐
+                    OFAC SDN (live)                   │ Writ Token (patched CEP-78,  │
 Challenger ──challenge + bond────────────────────────▶│  Transferable + recipient    │
  (anyone)     triggers on-chain Groth16 verify        │  -aware filter + mint gate)  │
                                                       │  transfer ▶ Proceed / Deny   │
@@ -92,7 +92,7 @@ Regulator ◀──selective disclosure (off-chain)──────── + on
 
 - **Off-chain:** investor PII, ZK proof generation, the quorum's proof verification, live sanctions screening, regulator disclosure, the re-screen scheduler.
 - **On-chain:** the Writ Token (patched CEP-78), the Credential Registry (commitments, flags, expiries, quorum signatures, published proofs, bonds, nullifier set), RBAC, officer override authority.
-- **The agent** is the orchestrator: verifies proofs, screens via Cordon/x402, signs credentials, submits transactions (via `put-deploy`, see §17), drives re-screening.
+- **The agent** is the orchestrator: verifies proofs, screens via OFAC SDN, signs credentials, submits transactions (via `put-deploy`, see §17), drives re-screening.
 
 ---
 
@@ -181,7 +181,7 @@ States: `NONE · PENDING · ATTESTED (in challenge window, not yet transactable)
 | 4 | Credential expired | EXPIRED → transfers DENY until re-proof | fail-safe |
 | 5 | False attestation (quorum compromised) | challenger → on-chain verify INVALID → slash, REVOKE | trust backstop |
 | 6 | Griefing challenge | on-chain verify VALID → slash challenger | anti-grief |
-| 7 | Data source (Cordon/x402) down | do not grant; live creds expire at freshness | never act on stale data |
+| 7 | Data source (OFAC SDN) down | do not grant; live creds expire at freshness | never act on stale data |
 | 8 | Quorum offline | onboarding stalls; live creds run to expiry then DENY | fail-safe, no extension |
 | 9 | Transfer to ineligible recipient | filter DENY | working as designed |
 | 10 | Officer key compromised | officer authority behind M-of-N human multisig | accountability |
@@ -201,10 +201,10 @@ States: `NONE · PENDING · ATTESTED (in challenge window, not yet transactable)
 
 ## 12. Real integrations (zero mocks)
 
-- **Cordon** (`screen_sender` / `screen_batch` / `get_policy`) — live, free sanctions screening over MCP; returns verdict + attestation. The agent's primary screening source.
-- **x402 OFAC** — paid per-call sanctions probes via the live Casper x402 facilitator (`casper:casper-test`, WCSPR settlement); free fallbacks (OpenSanctions) as a floor.
+- **OFAC / OpenSanctions SDN** — the agent screens holder accounts directly against the real OFAC SDN / OpenSanctions sanctions list: free, authoritative, ecosystem-neutral. The genuine sanctions source (the actual SDN list), not a proxy or a custom allowlist.
 - **CSPR.cloud MCP** — chain reads, balances, contract state for the agent (full testnet parity).
-- **x402 facilitator** — the agent pays per-call for compliance data; sponsored gas-free Buildathon access.
+
+x402-paid OFAC was evaluated and dropped: real x402 OFAC services settle in USDC on Base/Solana, and no OFAC service sits behind the Casper x402 facilitator, so an autonomous WCSPR-settled OFAC screen on Casper isn't a reachable endpoint. Screening goes directly against the authoritative SDN list rather than contorting the product around x402. (If x402 is wanted for Casper-alignment, the clean path is metering Writ itself — issuers pay WCSPR per compliance check — not OFAC-via-x402.)
 
 ---
 
@@ -219,7 +219,7 @@ States: `NONE · PENDING · ATTESTED (in challenge window, not yet transactable)
 
 ## 14. Scope
 
-**v1 (Buildathon):** eligibility + sanctions gating · single reference asset (tokenized bond) · patched recipient-aware CEP-78 + mint gate · threshold (2-of-3) verification · optimistic on-chain fraud proofs · autonomous runtime re-screening (Cordon + x402) · selective disclosure · officer override · capability-demo on-chain verify.
+**v1 (Buildathon):** eligibility + sanctions gating · single reference asset (tokenized bond) · patched recipient-aware CEP-78 + mint gate · threshold (2-of-3) verification · optimistic on-chain fraud proofs · autonomous runtime re-screening (OFAC SDN) · selective disclosure · officer override · capability-demo on-chain verify.
 
 **v2 (post-Buildathon):** ownership-concentration caps + holding periods (need aggregate balance/lot tracking) · multi-asset shared identity layer (prove once, reuse across compatible assets) · forced-redemption-to-custody for sanctioned holdings · signature aggregation at institutional M · compliant distributions.
 
@@ -231,7 +231,7 @@ Build *order*, not scope cut — the v1 spine is what wins the demo; v2 layers h
 
 1. **Onboard, privately.** An investor proves accreditation + jurisdiction + clean-sanctions in ZK — uploads no document to the platform. Writ's quorum verifies off-chain, posts a credential. They can now hold the bond. *Show: no PII anywhere on-chain or in the platform.*
 2. **Gated transfer.** Transfer to an eligible holder → PROCEEDS on-chain (real tx). Transfer to a non-credentialed wallet → DENIED on-chain (real tx, revert 159). The asset is gated.
-3. **The kicker — autonomous sanctions block.** A current holder hits a sanctions list; Cordon flags them on re-screen; Writ's agent REVOKES the credential autonomously. Their next attempt to move the bond → DENIED on-chain, in real time. *Their name never appeared anywhere.*
+3. **The kicker — autonomous sanctions block.** A current holder hits a sanctions list; the re-screen flags them; Writ's agent REVOKES the credential autonomously. Their next attempt to move the bond → DENIED on-chain, in real time. *Their name never appeared anywhere.*
 4. **The trust flex — "watch me cheat."** Push a false eligibility attestation. A challenger triggers the on-chain Groth16 verify on the published proof → invalid → the attestor's bond is slashed on-chain. *"You can't lie to Writ. Here's the proof, verified by anyone."*
 5. **Regulator.** A regulator asks "prove holder #X was eligible at time T." Writ produces a selective-disclosure proof for that one fact — without revealing who #X is or exposing the book.
 
@@ -244,7 +244,7 @@ Tagline beat (LICTOR discipline): *"The sanctioned wallet tried to receive the b
 1. **Writ Token** — finalize the patched CEP-78 fork (recipient-aware filter wired to read the Registry; mint gate). *Substrate already proven.*
 2. **Credential Registry (Odra)** — credential storage (commit/nullifier/flag/expiry/sigs), native `verify_signature` check of quorum sigs, RBAC, nullifier set, published-proof storage + pruning.
 3. **ZK circuit** — Circom eligibility predicate; snarkjs prover; arkworks verifier in the agent.
-4. **Verifier quorum agent** — proof verify + Cordon/x402 screening + threshold co-sign + `put-deploy` submission + re-screen scheduler (delta-screening). On Railway.
+4. **Verifier quorum agent** — proof verify + OFAC SDN screening + threshold co-sign + `put-deploy` submission + re-screen scheduler (delta-screening). On Railway.
 5. **Optimistic challenge path** — on-chain Groth16 verifier (Shroud-pattern) + challenge/bond/slash logic.
 6. **Officer override** — Casper weighted-multisig authority for freeze/override/disclose.
 7. **Selective disclosure** — off-chain disclosure payload + on-chain commitment.
@@ -267,7 +267,7 @@ Each component built and verified before the next. Production-grade, real on-cha
 
 ## 18. Tech stack
 
-Contracts: **Odra 2.8.x** + **patched CEP-78** (Casper 2.0, `vm_casper_v1`). ZK: **Circom v2 / snarkjs / Groth16-BN254** prover, **arkworks** verifier. Agent: **Railway**, MCP-driven (CSPR.cloud, Cordon), x402 facilitator. Infra: casper-client 5.0.1 (`put-deploy`), CSPR.cloud (REST/streaming/Node-RPC, testnet parity), testnet.cspr.live explorer.
+Contracts: **Odra 2.8.x** + **patched CEP-78** (Casper 2.0, `vm_casper_v1`). ZK: **Circom v2 / snarkjs / Groth16-BN254** prover, **arkworks** verifier. Agent: **Railway**, MCP-driven (CSPR.cloud), OFAC SDN sanctions screening. Infra: casper-client 5.0.1 (`put-deploy`), CSPR.cloud (REST/streaming/Node-RPC, testnet parity), testnet.cspr.live explorer.
 
 ---
 

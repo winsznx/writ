@@ -59,7 +59,7 @@ Each section: its job, content, the beat. **The hero must land the value in one 
 
 9. **How the ZK works (the honest, credible section).** The precise claim for technical judges + institutional buyers: *"Eligibility proven in zero-knowledge, verified by a threshold of autonomous agents; the chain stores signed credentials, enforces compliance at every transfer via a native CEP-78 filter, and exposes published proofs for on-chain fraud challenge."* Never imply on-chain SNARK verification. Honesty reads as senior.
 
-10. **Built on Casper.** Ecosystem alignment — the ERC-3643-equivalent for Casper, x402, native account model, dead-center on Casper's RWA + compliant-privacy thesis. (Scores the Casper judges.)
+10. **Built on Casper.** Ecosystem alignment — the ERC-3643-equivalent for Casper, native account model, dead-center on Casper's RWA + compliant-privacy thesis. (Scores the Casper judges.)
 
 11. **CTA + footer.** Launch app · Docs · GitHub · socials · CSPR.fans. Repeat the one-liner.
 

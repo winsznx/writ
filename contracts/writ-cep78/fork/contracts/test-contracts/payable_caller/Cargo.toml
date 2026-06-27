@@ -1,0 +1,15 @@
+[package]
+name = "payable_caller"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+casper-types.workspace = true
+casper-contract = { workspace = true, features = ["no-std-helpers"] }
+
+[[bin]]
+name = "payable_caller"
+path = "src/main.rs"
+bench = false
+doctest = false
+test = false

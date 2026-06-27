@@ -47,14 +47,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 text-center shadow-[var(--shadow-card)]">
             <h1 className="text-xl font-semibold text-ink">Connect your wallet</h1>
             <p className="mt-3 text-sm leading-relaxed text-ink-muted">
-              The Writ app surfaces are wallet-gated. Connect with CSPR.click to continue —
-              no documents or PII are ever requested.
+              The Writ app surfaces are wallet-gated. Connect with CSPR.click to continue.
+              No documents or PII are ever requested.
             </p>
             <Button className="mt-6 w-full" onClick={connect}>
               Connect with CSPR.click
             </Button>
             <p className="mt-4 text-xs text-ink-subtle">
-              Demo build — connection is simulated for the walkthrough.
+              Demo build. Connection is simulated for the walkthrough.
             </p>
           </div>
         </div>

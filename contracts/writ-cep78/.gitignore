@@ -1,0 +1,3 @@
+fork/target/
+fork/tests/wasm/
+*.wasm.bak

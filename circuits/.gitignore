@@ -1,0 +1,11 @@
+node_modules/
+build/
+*.ptau
+*.zkey
+*.r1cs
+*.wasm
+*.sym
+witness.wtns
+*_js/
+proof.json
+public.json

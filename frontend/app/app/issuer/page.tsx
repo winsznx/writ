@@ -1,75 +1,91 @@
 import type { Metadata } from "next";
 import { Card, Mono } from "@/components/ui";
-import { StatusBadge } from "@/components/status-badge";
-import {
-  ASSET,
-  AUDIT_TRAIL,
-  HOLDERS,
-  RE_SCREEN,
-  RULE_SET,
-} from "@/lib/mocks";
+import { StatusBadge, type CredentialStatus } from "@/components/status-badge";
+import { RULE_SET, RE_SCREEN } from "@/lib/mocks";
+import { CONTRACTS, ASSET_ID, deployUrl, deployTxUrl } from "@/lib/chain";
+import { fetchRegistryView, type RosterRow, type TrailEvent } from "@/lib/cspr-cloud";
 
 export const metadata: Metadata = { title: "Issuer" };
+export const dynamic = "force-dynamic";
 
-export default function IssuerDashboard() {
+const cep78Short = `${CONTRACTS.cep78.contract.slice(0, 10)}…${CONTRACTS.cep78.contract.slice(-4)}`;
+
+async function getView() {
+  const key = process.env.CSPR_CLOUD_KEY;
+  if (!key) return { error: "CSPR_CLOUD_KEY not set in frontend/.env.local", roster: [], trail: [] };
+  try {
+    const v = await fetchRegistryView(key);
+    return { error: null as string | null, roster: v.roster, trail: v.trail };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "live read failed", roster: [], trail: [] };
+  }
+}
+
+export default async function IssuerDashboard() {
+  const { error, roster, trail } = await getView();
+
   return (
     <div className="space-y-10">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Issuer control room</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          A compliant holder book with zero investor PII on screen — only credential status and
-          pseudonymous nullifiers.
+          A compliant holder book with zero investor PII on screen, just credential status and
+          pseudonymous commitments — read live from the on-chain registry.
         </p>
       </header>
+
+      {error && (
+        <p className="rounded-md bg-enforce-subtle px-4 py-3 text-sm text-enforce">
+          Live registry read unavailable: {error}
+        </p>
+      )}
 
       {/* Asset overview */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Asset", value: ASSET.name, sub: ASSET.symbol },
-          { label: "Supply", value: ASSET.supply, sub: ASSET.standard },
-          { label: "Holders", value: String(ASSET.holders), sub: "credentialed" },
-          { label: "Contract", value: ASSET.contract, sub: "testnet.cspr.live", mono: true },
+          { label: "Asset", value: "Acme 2031 Senior Note", sub: ASSET_ID },
+          { label: "Standard", value: "Patched CEP-78", sub: "recipient-aware" },
+          { label: "Credentialed", value: String(roster.length), sub: "live holders" },
+          { label: "NFT contract", value: cep78Short, sub: "testnet.cspr.live", mono: true, href: deployUrl(CONTRACTS.cep78.pkg) },
         ].map((tile) => (
           <Card key={tile.label} className="p-5">
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-subtle">
-              {tile.label}
-            </p>
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-subtle">{tile.label}</p>
             <p className={`mt-2 truncate text-lg font-semibold text-ink ${tile.mono ? "font-mono text-base" : ""}`}>
-              {tile.value}
+              {tile.href ? (
+                <a href={tile.href} target="_blank" rel="noreferrer" className="hover:text-brand">{tile.value}</a>
+              ) : tile.value}
             </p>
             <p className="mt-0.5 truncate text-xs text-ink-subtle">{tile.sub}</p>
           </Card>
         ))}
       </section>
 
-      {/* Holder roster */}
+      {/* Holder roster — live */}
       <section>
-        <SectionHeading
-          title="Holder roster"
-          note="No identities — status & nullifier only"
-        />
+        <SectionHeading title="Holder roster" note="Live · commitments only, no identities" />
         <Card className="mt-4 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-[0.06em] text-ink-subtle">
-                  <th className="px-4 py-3 font-medium">Holder</th>
+                  <th className="px-4 py-3 font-medium">Holder commitment</th>
                   <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Jurisdiction</th>
-                  <th className="px-4 py-3 font-medium">Credential expiry</th>
-                  <th className="px-4 py-3 font-medium">Last re-screen</th>
+                  <th className="px-4 py-3 font-medium">Last action</th>
+                  <th className="px-4 py-3 font-medium">Updated</th>
                 </tr>
               </thead>
               <tbody>
-                {HOLDERS.map((h) => (
-                  <tr key={h.nullifier} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3"><Mono>{h.nullifier}</Mono></td>
-                    <td className="px-4 py-3"><StatusBadge status={h.status} /></td>
-                    <td className="px-4 py-3 text-ink-muted">{h.jurisdiction}</td>
-                    <td className="px-4 py-3 text-ink-muted">{h.credentialExpiry}</td>
-                    <td className="px-4 py-3 text-ink-subtle">{h.lastReScreen}</td>
+                {roster.map((h) => (
+                  <tr key={h.holder} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3"><Mono>{shortCommit(h.commitment)}</Mono></td>
+                    <td className="px-4 py-3"><RosterStatus status={h.status} /></td>
+                    <td className="px-4 py-3 text-ink-muted">{h.lastEvent}</td>
+                    <td className="px-4 py-3 text-ink-subtle">{h.at.slice(0, 19).replace("T", " ")} UTC</td>
                   </tr>
                 ))}
+                {roster.length === 0 && !error && (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-ink-subtle">No credentials on-chain yet.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -77,7 +93,6 @@ export default function IssuerDashboard() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Rule set */}
         <section>
           <SectionHeading title="Rule set" note="Officer-gated edit" />
           <Card className="mt-4 p-5">
@@ -89,17 +104,13 @@ export default function IssuerDashboard() {
             </dl>
           </Card>
         </section>
-
-        {/* Re-screen status */}
         <section>
           <SectionHeading title="Re-screen status" />
           <Card className="mt-4 p-5">
             <dl className="space-y-3 text-sm">
               <Row term="Last sweep">{RE_SCREEN.lastSweep}</Row>
               <Row term="Freshness">{RE_SCREEN.freshness}</Row>
-              <Row term="Open flags">
-                <span className="font-medium text-pending">{RE_SCREEN.flags}</span>
-              </Row>
+              <Row term="Open flags"><span className="font-medium text-pending">{RE_SCREEN.flags}</span></Row>
               <Row term="Quorum health">{RE_SCREEN.quorumHealth}</Row>
             </dl>
           </Card>
@@ -108,7 +119,7 @@ export default function IssuerDashboard() {
 
       {/* Officer actions */}
       <section>
-        <SectionHeading title="Officer actions" note="Each requires an M-of-N officer key" />
+        <SectionHeading title="Officer actions" note="Each requires the 2-of-3 multisig" />
         <Card className="mt-4 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-ink-muted">
             Freeze, revoke, or override a credential. Every action is multisig-gated, logged
@@ -122,26 +133,64 @@ export default function IssuerDashboard() {
         </Card>
       </section>
 
-      {/* Audit trail */}
+      {/* Attribution trail — live */}
       <section>
-        <SectionHeading title="Audit trail" note="On-chain-anchored · exportable" />
+        <SectionHeading title="Attribution trail" note="Live · on-chain events" />
         <Card className="mt-4 divide-y divide-border">
-          {AUDIT_TRAIL.map((e) => (
-            <div key={e.id} className="flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          {trail.map((e) => (
+            <div key={e.txHash} className="flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <EventTag kind={e.kind} />
-                <span className="text-sm text-ink">{e.detail}</span>
+                <span className="text-sm text-ink">{detailOf(e)}</span>
               </div>
               <div className="flex items-center gap-3 text-xs text-ink-subtle">
-                <Mono>{e.txHash}</Mono>
-                <span>{e.at}</span>
+                <a href={deployTxUrl(e.txHash)} target="_blank" rel="noreferrer" className="hover:text-brand">
+                  <Mono>{e.txHash.slice(0, 8)}…</Mono>
+                </a>
+                <span>{e.at.slice(0, 19).replace("T", " ")} UTC</span>
+                {!e.ok && <span className="text-enforce">reverted</span>}
               </div>
             </div>
           ))}
+          {trail.length === 0 && (
+            <div className="px-5 py-6 text-center text-sm text-ink-subtle">No on-chain events yet.</div>
+          )}
         </Card>
       </section>
     </div>
   );
+}
+
+function shortCommit(c: string): string {
+  const hex = c.startsWith("account-hash-") ? c.replace("account-hash-", "0x") : "0x" + c.replace(/^0x/, "");
+  return `${hex.slice(0, 10)}…${hex.slice(-4)}`;
+}
+
+function detailOf(e: TrailEvent): string {
+  const who = e.holder ? shortCommit(e.holder) : "attestor";
+  switch (e.kind) {
+    case "ATTEST": return `${who} attested ACTIVE by quorum`;
+    case "REVOKE_SANCTIONS": return `${who} revoked — sanctions match`;
+    case "OFFICER_FREEZE": return `${who} frozen by officer`;
+    case "OFFICER_UNFREEZE": return `${who} unfrozen by officer`;
+    case "OFFICER_REVOKE": return `${who} revoked by officer`;
+    case "OFFICER_REINSTATE": return `${who} reinstated by officer`;
+    case "CHALLENGE": return `${who} challenged — credential frozen`;
+    case "RESOLVE_FRAUD": return `${who} resolved FRAUD → RevokedFraud + slash`;
+    case "BOND": return `attestor bond posted`;
+    default: return e.entryPoint;
+  }
+}
+
+function RosterStatus({ status }: { status: RosterRow["status"] }) {
+  if (status === "REVOKED_FRAUD") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-enforce-subtle px-2 py-0.5 text-xs font-semibold text-enforce">
+        <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-enforce" /> REVOKED · FRAUD
+      </span>
+    );
+  }
+  return <StatusBadge status={status as CredentialStatus} />;
 }
 
 function SectionHeading({ title, note }: { title: string; note?: string }) {
@@ -172,20 +221,21 @@ function ActionChip({ children }: { children: React.ReactNode }) {
 }
 
 const EVENT_STYLES: Record<string, string> = {
-  TRANSFER_DENY: "bg-enforce-subtle text-enforce",
-  REVOKE: "bg-enforce-subtle text-enforce",
-  FREEZE: "bg-enforce-subtle text-enforce",
-  TRANSFER_OK: "bg-active-subtle text-active",
   ATTEST: "bg-brand-subtle text-brand",
+  REVOKE_SANCTIONS: "bg-enforce-subtle text-enforce",
+  OFFICER_FREEZE: "bg-pending-subtle text-pending",
+  OFFICER_UNFREEZE: "bg-active-subtle text-active",
+  OFFICER_REVOKE: "bg-enforce-subtle text-enforce",
+  OFFICER_REINSTATE: "bg-active-subtle text-active",
   CHALLENGE: "bg-pending-subtle text-pending",
+  RESOLVE_FRAUD: "bg-enforce-subtle text-enforce",
+  BOND: "bg-neutral-subtle text-neutral",
 };
 
 function EventTag({ kind }: { kind: string }) {
   return (
-    <span
-      className={`shrink-0 rounded px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide ${EVENT_STYLES[kind] ?? "bg-neutral-subtle text-neutral"}`}
-    >
-      {kind.replace("_", " ")}
+    <span className={`shrink-0 rounded px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide ${EVENT_STYLES[kind] ?? "bg-neutral-subtle text-neutral"}`}>
+      {kind.replace(/_/g, " ")}
     </span>
   );
 }

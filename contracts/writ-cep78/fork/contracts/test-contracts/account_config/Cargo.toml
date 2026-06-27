@@ -1,0 +1,13 @@
+[package]
+name = "account_config"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+casper-types.workspace = true
+casper-contract = { workspace = true, features = ["no-std-helpers"] }
+[[bin]]
+name = "account_config"
+path = "src/main.rs"
+bench = false
+doctest = false
+test = false

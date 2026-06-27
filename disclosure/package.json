@@ -1,0 +1,13 @@
+{
+  "name": "writ-disclosure",
+  "version": "1.0.0",
+  "description": "Writ selective disclosure — the off-chain regulator-view mechanism.",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node src/test_disclosure.js"
+  },
+  "dependencies": {
+    "tweetnacl": "^1.0.3"
+  }
+}

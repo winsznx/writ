@@ -1,0 +1,11 @@
+{
+  "name": "writ-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Writ compliance agent — verify eligibility proofs, screen, threshold co-sign, attest to the Credential Registry",
+  "dependencies": {
+    "@noble/curves": "^1.4.0",
+    "@noble/hashes": "^1.4.0"
+  }
+}

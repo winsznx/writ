@@ -1,0 +1,2 @@
+[[contracts]]
+fqn = "verifier::Groth16Verifier"

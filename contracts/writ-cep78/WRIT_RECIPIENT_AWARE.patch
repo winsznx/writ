@@ -1,0 +1,62 @@
+diff --git a/contracts/contract/src/main.rs b/contracts/contract/src/main.rs
+index aa9598e..016cbb0 100644
+--- a/contracts/contract/src/main.rs
++++ b/contracts/contract/src/main.rs
+@@ -791,6 +791,20 @@ pub extern "C" fn mint() {
+             caller
+         };
+ 
++    // WRIT MINT GATE: the transfer filter does not fire on mint, so gate issuance
++    // here — the recipient must be eligible. Delegates to the filter's
++    // `mint_allowed`, which calls Registry.is_active(recipient).
++    if let Some(filter_contract) = utils::get_transfer_filter_contract() {
++        let mut mint_args = RuntimeArgs::new();
++        mint_args
++            .insert(ARG_TARGET_KEY, token_owner_key)
++            .unwrap_or_revert_with(NFTCoreError::CannotInsertArg);
++        let mint_allowed: bool = call_contract::<bool>(filter_contract, "mint_allowed", mint_args);
++        if !mint_allowed {
++            revert(NFTCoreError::TransferFilterContractDenied);
++        }
++    }
++
+     utils::upsert_dictionary_value_from_key(
+         TOKEN_OWNERS,
+         &token_identifier.get_dictionary_item_key(),
+@@ -1346,11 +1360,21 @@ pub extern "C" fn transfer() {
+         false
+     };
+ 
++    // WRIT PATCH: read the real recipient BEFORE the filter call so the filter
++    // can gate on the recipient, not just the current owner.
++    let target_owner_key = utils::get_named_arg_with_user_errors::<Key>(
++        ARG_TARGET_KEY,
++        NFTCoreError::MissingAccountHash,
++        NFTCoreError::InvalidAccountHash,
++    )
++    .unwrap_or_revert();
++
+     if let Some(filter_contract) = utils::get_transfer_filter_contract() {
+         let mut args = RuntimeArgs::new();
+         args.insert(ARG_SOURCE_KEY, source_owner_key)
+             .unwrap_or_revert_with(NFTCoreError::CannotInsertArg);
+-        args.insert(ARG_TARGET_KEY, owner)
++        // WRIT PATCH: pass the recipient (target_owner_key), not the current owner.
++        args.insert(ARG_TARGET_KEY, target_owner_key)
+             .unwrap_or_revert_with(NFTCoreError::CannotInsertArg);
+ 
+         match &token_identifier {
+@@ -1376,13 +1400,6 @@ pub extern "C" fn transfer() {
+         runtime::revert(NFTCoreError::InvalidTokenOwner);
+     }
+ 
+-    let target_owner_key = utils::get_named_arg_with_user_errors::<Key>(
+-        ARG_TARGET_KEY,
+-        NFTCoreError::MissingAccountHash,
+-        NFTCoreError::InvalidAccountHash,
+-    )
+-    .unwrap_or_revert();
+-
+     if NFTIdentifierMode::Hash == identifier_mode && runtime::get_key(OWNED_TOKENS).is_some() {
+         if utils::should_migrate_token_hashes(source_owner_key) {
+             utils::migrate_token_hashes(source_owner_key)
