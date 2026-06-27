@@ -59,11 +59,12 @@ export const OFFICER_MULTISIG =
 export const DEPLOYER =
   "account-hash-8580ff20c447444a38539c8ea92c9392e6240c0d4b8aee0264188ca09ebab6a4";
 
-/** The pre-staged regulated demo holder R, attested on v4 with the REAL eligibility
-    commitment (Poseidon output of the proven circuit). The regulator surface verifies
-    a disclosed preimage by recomputing Poseidon and matching this exact on-chain value. */
+/** The regulated demo holder R — a real Active v4 credential attested with the REAL
+    eligibility commitment (Poseidon output of the proven circuit; on-chain ByteArray =
+    little-endian of this field). The regulator surface verifies a disclosed preimage by
+    recomputing Poseidon and matching this exact on-chain value. */
 export const REGULATED_HOLDER = {
-  holder: "account-hash-1234123412341234123412341234123412341234123412341234123412341234",
+  holder: "account-hash-9711698476d5a4f529ad4c2bcc0232ba23d0725b029e482df69075d076b44b3b",
   commitment: "0x213df7cd6dde3ed3bdbb4523865a1b50939ef70e876fc7116e67cee535b6e0ac",
 } as const;
 

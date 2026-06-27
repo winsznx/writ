@@ -2,13 +2,31 @@
   CSPR.cloud reader — SERVER-SIDE ONLY. The API key is read from the environment by
   the caller (the /api/registry route) and never reaches the browser. CSPR.cloud's
   CES-event endpoints are not indexed for this contract, so the live attribution
-  trail + roster are derived from the deploys (top-level entrypoint calls) of the v3
-  registry and challenge contracts — the same calls proven in DEPLOYMENT_v3.md.
+  trail + roster are derived from the deploys (top-level entrypoint calls) of the v4
+  registry and challenge contracts.
+
+  The reads are live, but early test/seed attests left low-entropy junk holders on the
+  registry (0xfeedface…, 0x12341234…, etc.). We curate them out HERE (server-side) so
+  the roster shows the real story holders only — nothing is fabricated or mocked, only
+  non-story debris and reverted/duplicate rows are hidden.
 */
 
 import { CONTRACTS, ASSET_ID } from "@/lib/chain";
 
 const BASE = "https://api.testnet.cspr.cloud";
+
+/** Low-entropy seed/test holders left on the registry by early staging. Curated out of
+    the live roster + trail (account-hash prefix match, after the `account-hash-` tag). */
+const JUNK_HOLDER_PREFIXES = [
+  "feedface", "12341234", "d00dfeed", "cafe00ca", "cafe00cafe",
+  "0a0b0c0d", "ab1ec0de", "c3e2020f", "deadbeef", "00000000", "85d28e05",
+];
+
+function isJunkHolder(holder: string | null): boolean {
+  if (!holder) return false;
+  const hex = holder.replace(/^account-hash-/, "").toLowerCase();
+  return JUNK_HOLDER_PREFIXES.some((p) => hex.startsWith(p));
+}
 
 type CloudDeploy = {
   deploy_hash: string;
@@ -46,6 +64,7 @@ export type RosterRow = {
   readonly status: "ACTIVE" | "REVOKED" | "REVOKED_FRAUD" | "FROZEN" | "EXPIRED" | "PENDING";
   readonly lastEvent: string;
   readonly at: string;
+  readonly txHash: string; // last status-changing deploy — clickable to cspr.live
 };
 
 export type RegistryView = { readonly roster: readonly RosterRow[]; readonly trail: readonly TrailEvent[] };
@@ -145,14 +164,22 @@ export async function fetchRegistryView(key: string): Promise<RegistryView> {
     };
   };
 
+  const seenTx = new Set<string>();
   const events = [
     ...regDeploys.map((d) => toEvent(d, regNames)),
     ...chalDeploys.map((d) => toEvent(d, chalNames)),
   ]
     .filter((e) => arg2(e))
+    .filter((e) => !isJunkHolder(e.holder)) // curate seed/test junk holders
+    .filter((e) => {
+      if (seenTx.has(e.txHash)) return false; // dedupe
+      seenTx.add(e.txHash);
+      return true;
+    })
     .sort((a, b) => a.at.localeCompare(b.at));
 
-  // roster: one row per holder, current status replayed from its events
+  // roster: one row per holder, current status replayed from its events. Drop PENDING
+  // (incomplete) rows so the live book reads as a clean, curated set of real holders.
   const byHolder = new Map<string, TrailEvent[]>();
   for (const e of events) {
     if (!e.holder) continue;
@@ -162,18 +189,24 @@ export async function fetchRegistryView(key: string): Promise<RegistryView> {
   }
   const roster: RosterRow[] = [];
   for (const [holder, hes] of byHolder) {
+    const status = statusFor(hes);
+    if (status === "PENDING") continue;
     const commitment = hes.find((e) => e.commitment)?.commitment ?? holder;
     const last = hes[hes.length - 1];
     roster.push({
       commitment,
       holder,
-      status: statusFor(hes),
+      status,
       lastEvent: last.entryPoint,
       at: last.at,
+      txHash: last.txHash,
     });
   }
+  roster.sort((a, b) => b.at.localeCompare(a.at));
 
-  return { roster, trail: events.slice().reverse() };
+  // trail: real on-chain events only — drop reverted rows from the displayed history
+  const trail = events.filter((e) => e.ok).slice().reverse();
+  return { roster, trail };
 }
 
 // keep only asset-relevant events (drop unrelated deploys to the same contracts)

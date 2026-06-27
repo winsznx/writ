@@ -3,17 +3,19 @@
 import { useState } from "react";
 import { Button, Card, Mono } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { CONTRACTS, REGULATED_HOLDER, deployUrl, deployTxUrl } from "@/lib/chain";
+import { CONTRACTS, REGULATED_HOLDER, deployUrl, deployTxUrl, accountUrl } from "@/lib/chain";
 import { verifyDisclosure, type DisclosedClaims } from "@/lib/disclosure";
 import { loadSampleInput } from "@/lib/prove";
 import type { TrailEvent } from "@/lib/cspr-cloud";
 
 const COMMITMENT_SHORT = `${REGULATED_HOLDER.commitment.slice(0, 8)}…${REGULATED_HOLDER.commitment.slice(-4)}`;
+const HOLDER_HEX = REGULATED_HOLDER.holder.replace(/^account-hash-/, "");
+const HOLDER_SHORT = `0x${HOLDER_HEX.slice(0, 4)}…${HOLDER_HEX.slice(-4)}`;
 
 type Verdict = "idle" | "verifying" | "valid" | "invalid";
 
 export function RegulatorDisclosure() {
-  const [holder, setHolder] = useState("0x7a3f…91c4");
+  const [holder, setHolder] = useState(HOLDER_SHORT);
   const [fact, setFact] = useState("eligible");
   const [time, setTime] = useState("2026-06-20");
   const [verdict, setVerdict] = useState<Verdict>("idle");
@@ -69,9 +71,7 @@ export function RegulatorDisclosure() {
                 onChange={(e) => { setHolder(e.target.value); setVerdict("idle"); }}
                 className="w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-sm font-mono text-ink"
               >
-                <option>0x7a3f…91c4</option>
-                <option>0x2c81…44de</option>
-                <option>0x9f0b…a3e1</option>
+                <option>{HOLDER_SHORT}</option>
               </select>
             </Field>
             <Field label="Fact">
@@ -121,7 +121,12 @@ export function RegulatorDisclosure() {
                 <span aria-hidden className="text-lg">{verdict === "valid" ? "✓" : "✗"}</span>
               </div>
               <dl className="space-y-2 text-sm">
-                <Row term="Holder"><Mono>{holder}</Mono></Row>
+                <Row term="Holder">
+                  <a href={accountUrl(REGULATED_HOLDER.holder)} target="_blank" rel="noreferrer"
+                     className="underline decoration-dotted underline-offset-2 hover:text-active">
+                    <Mono>{holder} ↗</Mono>
+                  </a>
+                </Row>
                 <Row term="Claim">
                   {fact === "eligible" ? "Eligible" : fact === "accredited" ? "Accredited" : "Not sanctioned"} at {time}
                 </Row>

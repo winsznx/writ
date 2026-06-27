@@ -79,7 +79,12 @@ export default async function IssuerDashboard() {
                   <tr key={h.holder} className="border-b border-border last:border-0">
                     <td className="px-4 py-3"><Mono>{shortCommit(h.commitment)}</Mono></td>
                     <td className="px-4 py-3"><RosterStatus status={h.status} /></td>
-                    <td className="px-4 py-3 text-ink-muted">{h.lastEvent}</td>
+                    <td className="px-4 py-3 text-ink-muted">
+                      <a href={deployTxUrl(h.txHash)} target="_blank" rel="noreferrer"
+                         className="underline decoration-dotted underline-offset-2 hover:text-brand">
+                        {h.lastEvent} ↗
+                      </a>
+                    </td>
                     <td className="px-4 py-3 text-ink-subtle">{h.at.slice(0, 19).replace("T", " ")} UTC</td>
                   </tr>
                 ))}

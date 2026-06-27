@@ -17,8 +17,8 @@ const STEPS = [
   },
   {
     n: "03",
-    title: "Continuously re-screened",
-    body: "An autonomous agent re-screens the whole holder base against live sanctions and accreditation data, and revokes the moment something changes.",
+    title: "Re-screened at runtime",
+    body: "An autonomous agent re-screens holders against live sanctions and accreditation data — not a one-time check — and revokes the credential on-chain the moment a holder no longer qualifies.",
   },
   {
     n: "04",
@@ -44,7 +44,7 @@ const COMPARE = [
   {
     point: "Screening",
     usual: "Point-in-time KYC: pass once, in forever",
-    writ: "Continuous runtime re-screening by an autonomous agent",
+    writ: "Runtime re-screening against live data, by an autonomous agent",
   },
   {
     point: "Enforcement",
@@ -71,8 +71,9 @@ export default function LandingPage() {
               <span className="italic text-brand">for life.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-muted">
-              Every holder provably eligible, continuously re-screened, and blocked on-chain the
-              moment they&apos;re not, and your firm never touches a single piece of investor PII.
+              Every holder provably eligible, re-screened against live sanctions data, and blocked
+              on-chain the moment they&apos;re not, and your firm never touches a single piece of
+              investor PII.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <ButtonLink href="#demo" size="lg">
@@ -155,9 +156,9 @@ export default function LandingPage() {
               on-chain, fail-safe by default. The enforcement is real; the identity is invisible.
             </p>
             <p className="mt-4 text-sm text-ink-subtle">
-              Runs on Casper testnet against a real{" "}
-              <Link href={SITE.explorer} target="_blank" rel="noreferrer" className="text-brand underline-offset-2 hover:underline">
-                CEP-78 transfer
+              A walkthrough of the real mechanism — the same recipient-aware CEP-78 filter that{" "}
+              <Link href="https://testnet.cspr.live/deploy/3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d" target="_blank" rel="noreferrer" className="text-brand underline-offset-2 hover:underline">
+                reverts a sanctioned transfer live on Casper testnet
               </Link>
               . Press the button.
             </p>
@@ -212,8 +213,9 @@ export default function LandingPage() {
             the happy path.
           </p>
           <p data-reveal className="mt-4 text-sm text-ink-subtle">
-            Security holds as long as the verifier quorum is honest <em>or</em> a single watcher
-            checks during the challenge window. Writ ships an issuer watchtower by default.
+            Security holds as long as the verifier quorum is honest <em>or</em> any single honest
+            watcher challenges a bad attestation during the dispute window — a 1-of-N trust model
+            the issuer can backstop itself.
           </p>
         </Container>
       </section>
@@ -274,14 +276,15 @@ export default function LandingPage() {
           <div data-reveal>
             <Eyebrow>Built on Casper</Eyebrow>
             <h2 className="mt-4 font-serif text-3xl font-medium tracking-[-0.015em] text-ink sm:text-4xl">
-              The ERC-3643-equivalent for Casper, shipped ahead of the protocol.
+              ERC-3643-style compliance, native to Casper.
             </h2>
           </div>
           <p data-reveal className="mt-6 text-[15px] leading-relaxed text-ink-muted">
-            Writ speaks the institutional security-token model (identity, claims, compliance
-            rules, transfer restrictions) on Casper&apos;s native account and weighted-multisig
-            model, paying for live compliance data through x402. It sits dead-center on Casper&apos;s
-            RWA and compliant-privacy thesis.
+            Casper has joined the ERC-3643 Association, the standards body for compliant RWA
+            tokenization. Writ brings that institutional security-token model — identity, claims,
+            compliance rules, transfer restrictions — to Casper&apos;s native account and
+            weighted-multisig model, and is built to pay for live compliance data on demand. It sits
+            dead-center on Casper&apos;s RWA and compliant-privacy thesis.
           </p>
         </Container>
       </section>
