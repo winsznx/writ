@@ -19,15 +19,17 @@ export function Wordmark({
         className,
       )}
     >
-      <span
-        aria-hidden
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/writ.avif"
+        alt=""
+        width={24}
+        height={24}
         className={cn(
-          "grid h-6 w-6 place-items-center rounded-md text-[13px] font-bold leading-none",
-          onDark ? "bg-white text-ink" : "bg-ink text-ink-onbrand",
+          "h-6 w-6 rounded-md object-cover ring-1",
+          onDark ? "ring-white/15" : "ring-black/5",
         )}
-      >
-        W
-      </span>
+      />
       <span className="text-[17px]">Writ</span>
     </Link>
   );

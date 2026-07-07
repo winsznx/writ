@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { SITE } from "@/lib/site";
+import { OG_LOGO } from "@/lib/og-logo";
 
 export const runtime = "edge";
 
@@ -18,23 +19,9 @@ export function GET() {
           fontFamily: "sans-serif",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "#0b1521",
-              color: "#ffffff",
-              borderRadius: 12,
-              fontSize: 28,
-              fontWeight: 700,
-            }}
-          >
-            W
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={OG_LOGO} width={56} height={56} alt="" style={{ borderRadius: 14 }} />
           <div style={{ fontSize: 34, fontWeight: 600, color: "#0b1521" }}>Writ</div>
         </div>
 
@@ -52,7 +39,7 @@ export function GET() {
             Keep your tokenized asset compliant for life, without touching investor PII.
           </div>
           <div style={{ fontSize: 28, color: "#4a5567", maxWidth: 900 }}>
-            Provably eligible · continuously re-screened · blocked on-chain.
+            Provably eligible · re-screened against live data · blocked on-chain.
           </div>
         </div>
 

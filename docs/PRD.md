@@ -305,3 +305,18 @@ None of these are screens or features *inside* Writ — folding them in is the f
 ---
 
 *Status: architecture locked, substrate proven on live testnet, all design decisions resolved. Next: sequenced build, component by component.*
+
+---
+
+## Live v4 proof points (Casper testnet — copy-paste)
+
+Explorer: `https://testnet.cspr.live/deploy/<hash>`
+
+- Sanctioned sender's transfer reverts on-chain (kicker):
+  `3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d`
+- Fraudulent attestation slashed, 110 CSPR burned (fraud slash):
+  `0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83`
+- Post-fraud transfer reverts (RevokedFraud holder):
+  `8922e979320ba28f38cab32b107893a5f868ec07281c9790c8b57d2b2c5786f9`
+- Regulated holder attest (genuine Poseidon commitment):
+  `f3fd7cbba19ef1195d70df72bc3ea073da4b6f78899c261ffadbc305d7a86645`
