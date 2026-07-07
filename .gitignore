@@ -33,3 +33,6 @@ coverage/
 
 # --- internal: design research, scratch, never shipped ---
 internal/
+
+# --- local demo/recording script (not shipped) ---
+DEMO_SCRIPT.md
