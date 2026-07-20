@@ -1,48 +1,87 @@
 /*
-  SERVER-ONLY. Per-visitor eligibility witness — the demo KYC issuer (a BabyJubJub
-  EdDSA key, env ISSUER_EDDSA_KEY) signs the claims for an identitySecret DERIVED from
-  the connected wallet, so every wallet gets a unique nullifier (= Poseidon(secret,
-  assetId)) and can onboard exactly once. Mirrors circuits/gen_input.js. The visitor
-  then generates the groth16 proof IN-BROWSER from this witness; the server never sees
-  their proof inputs beyond what it issued.
+  SERVER-ONLY. The DEMO credential issuer.
+
+  Honest model: Writ has no external KYC provider integrated. This module plays the
+  issuer role for the testnet demo — it signs an eligibility claim set
+  (accredited=1, jurisdiction=840/US, sanctioned=0) for a holder identity commitment.
+  In production this signing key would belong to a real KYC/accreditation provider;
+  see docs/final-round-hardening.md and README "What is demo-only".
+
+  What the issuer signs: claimsHash = Poseidon(accredited, jurisdiction, sanctioned,
+  idCommit) where idCommit = Poseidon(identitySecret). The identitySecret and salt
+  are derived and held CLIENT-SIDE from a wallet signature (lib/identity.ts) and are
+  never sent to this server. The server cannot rebuild the witness or the proof: it
+  only ever sees the hiding commitment Poseidon(identitySecret).
+
+  The signing key comes exclusively from ISSUER_EDDSA_KEY. There is no default and
+  no fallback: absence fails closed (no claims are issued).
 */
 
 import "server-only";
-import { blake2b } from "@noble/hashes/blake2b";
 
-const ISSUER_PRV_HEX =
-  process.env.ISSUER_EDDSA_KEY ?? "0001020304050607080900010203040506070809000102030405060708090001";
+export const FIELD =
+  21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
 const ASSET = process.env.ASSET_ID ?? "writ-bond-001";
-const FIELD = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 
-export type CircuitInput = Record<string, string | string[]>;
-export type VisitorWitness = {
-  input: CircuitInput;
-  commitment: string;
-  nullifier: string;
-};
-
-function deriveField(accountHex: string, tag: string): bigint {
-  const h = blake2b(Buffer.from(accountHex + tag, "utf8"), { dkLen: 31 });
-  return BigInt("0x" + Buffer.from(h).toString("hex")) % FIELD;
+export class IssuerKeyMissingError extends Error {
+  constructor() {
+    super("ISSUER_EDDSA_KEY is not configured — refusing to issue claims (fail closed)");
+    this.name = "IssuerKeyMissingError";
+  }
 }
 
-/** Build the witness for a wallet. identitySecret/salt are deterministic per account. */
-export async function buildVisitorWitness(accountHex: string): Promise<VisitorWitness> {
-  const { buildEddsa, buildPoseidon } = await import("circomlibjs");
-  const eddsa = await buildEddsa();
-  const poseidon = await buildPoseidon();
+/** The issuer signing key. Throws (fails closed) when unset or malformed. */
+export function requireIssuerKey(): Buffer {
+  const hex = process.env.ISSUER_EDDSA_KEY;
+  if (!hex || !/^[0-9a-fA-F]{64}$/.test(hex)) throw new IssuerKeyMissingError();
+  return Buffer.from(hex, "hex");
+}
+
+export type IssuedClaims = {
+  /** Circuit input fields, WITHOUT identitySecret/salt (those stay client-side). */
+  input: {
+    issuerAx: string;
+    issuerAy: string;
+    assetId: string;
+    allowedRoot: string;
+    accredited: string;
+    jurisdictionCode: string;
+    sanctioned: string;
+    sigR8x: string;
+    sigR8y: string;
+    sigS: string;
+    jurPathElements: string[];
+    jurPathIndices: string[];
+  };
+  /** Explicit provenance label — this is a self-run demo issuer, not external KYC. */
+  issuer: { kind: "demo-issuer"; ax: string; ay: string };
+};
+
+type Circomlib = {
+  eddsa: Awaited<ReturnType<typeof import("circomlibjs").buildEddsa>>;
+  poseidon: Awaited<ReturnType<typeof import("circomlibjs").buildPoseidon>>;
+};
+let circomlib: Promise<Circomlib> | null = null;
+function loadCircomlib(): Promise<Circomlib> {
+  circomlib ??= (async () => {
+    const { buildEddsa, buildPoseidon } = await import("circomlibjs");
+    return { eddsa: await buildEddsa(), poseidon: await buildPoseidon() };
+  })();
+  return circomlib;
+}
+
+/** assetId as the circuit encodes it: the asset string's bytes as a big-endian integer. */
+export function assetIdDecimal(asset: string = ASSET): string {
+  return BigInt("0x" + Buffer.from(asset).toString("hex")).toString();
+}
+
+/** Allowed-jurisdiction Merkle tree (depth 4), US (840) at index 0 — mirrors
+    circuits/gen_input.js. Returns the root and the inclusion path for US. */
+async function jurisdictionTree(): Promise<{ allowedRoot: string; els: string[]; idxs: string[] }> {
+  const { poseidon } = await loadCircomlib();
   const F = poseidon.F;
   const s = (x: unknown) => F.toString(x);
-  const P = (arr: unknown[]) => poseidon(arr);
-
-  const issuerPrv = Buffer.from(ISSUER_PRV_HEX, "hex");
-  const pub = eddsa.prv2pub(issuerPrv);
-  const issuerAx = s(pub[0]), issuerAy = s(pub[1]);
-
-  const assetId = BigInt("0x" + Buffer.from(ASSET).toString("hex")).toString();
-
-  // allowed-jurisdiction Merkle tree (depth 4), US (840) at index 0
   const DEPTH = 4;
   const allowed = [840n, 826n, 276n, 250n, 392n, 36n, 124n, 756n];
   let level: unknown[] = [];
@@ -50,35 +89,64 @@ export async function buildVisitorWitness(accountHex: string): Promise<VisitorWi
   const tree: unknown[][] = [level];
   while (level.length > 1) {
     const next: unknown[] = [];
-    for (let i = 0; i < level.length; i += 2) next.push(P([level[i], level[i + 1]]));
-    tree.push(next); level = next;
+    for (let i = 0; i < level.length; i += 2) next.push(poseidon([level[i], level[i + 1]]));
+    tree.push(next);
+    level = next;
   }
-  const allowedRoot = s(level[0]);
-  const jurIdx = 0;
   const els: string[] = [], idxs: string[] = [];
-  let i = jurIdx;
+  let i = 0; // US at index 0
   for (let d = 0; d < DEPTH; d++) { els.push(s(tree[d][i ^ 1])); idxs.push((i & 1).toString()); i >>= 1; }
+  return { allowedRoot: s(level[0]), els, idxs };
+}
 
-  const identitySecret = deriveField(accountHex, "writ::identity");
-  const salt = deriveField(accountHex, "writ::salt");
+/** The canonical public values every accepted proof must carry (public-input binding
+    at attestation: issuer key, asset, jurisdiction root). */
+export async function canonicalPublicValues(): Promise<{
+  issuerAx: string; issuerAy: string; assetId: string; allowedRoot: string;
+}> {
+  const { eddsa, poseidon } = await loadCircomlib();
+  const F = poseidon.F;
+  const pub = eddsa.prv2pub(requireIssuerKey());
+  const { allowedRoot } = await jurisdictionTree();
+  return { issuerAx: F.toString(pub[0]), issuerAy: F.toString(pub[1]), assetId: assetIdDecimal(), allowedRoot };
+}
+
+/**
+ * Sign the demo claim set for a client-supplied identity commitment.
+ * `idCommitDecimal` = Poseidon(identitySecret), computed in the holder's browser.
+ * The raw identitySecret never reaches this function.
+ */
+export async function issueClaims(idCommitDecimal: string): Promise<IssuedClaims> {
+  const idCommit = BigInt(idCommitDecimal); // throws on non-numeric
+  if (idCommit <= 0n || idCommit >= FIELD) throw new Error("idCommit out of field range");
+
+  const { eddsa, poseidon } = await loadCircomlib();
+  const F = poseidon.F;
+  const s = (x: unknown) => F.toString(x);
+
+  const issuerPrv = requireIssuerKey();
+  const pub = eddsa.prv2pub(issuerPrv);
+  const { allowedRoot, els, idxs } = await jurisdictionTree();
+
   const accredited = 1n, jur = 840n, sanctioned = 0n;
-
-  const idCommit = P([identitySecret]);
-  const claimsHash = P([accredited, jur, sanctioned, idCommit]);
+  const claimsHash = poseidon([accredited, jur, sanctioned, F.e(idCommit)]);
   const sig = eddsa.signPoseidon(issuerPrv, claimsHash);
-
-  const commitment = s(P([accredited, jur, sanctioned, identitySecret, salt]));
-  const nullifier = s(P([identitySecret, BigInt(assetId)]));
 
   return {
     input: {
-      issuerAx, issuerAy, assetId, allowedRoot,
-      accredited: accredited.toString(), jurisdictionCode: jur.toString(),
-      sanctioned: sanctioned.toString(), identitySecret: identitySecret.toString(), salt: salt.toString(),
-      sigR8x: s(sig.R8[0]), sigR8y: s(sig.R8[1]), sigS: sig.S.toString(),
-      jurPathElements: els, jurPathIndices: idxs,
+      issuerAx: s(pub[0]),
+      issuerAy: s(pub[1]),
+      assetId: assetIdDecimal(),
+      allowedRoot,
+      accredited: accredited.toString(),
+      jurisdictionCode: jur.toString(),
+      sanctioned: sanctioned.toString(),
+      sigR8x: s(sig.R8[0]),
+      sigR8y: s(sig.R8[1]),
+      sigS: sig.S.toString(),
+      jurPathElements: els,
+      jurPathIndices: idxs,
     },
-    commitment,
-    nullifier,
+    issuer: { kind: "demo-issuer", ax: s(pub[0]), ay: s(pub[1]) },
   };
 }

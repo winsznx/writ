@@ -3,12 +3,21 @@
 import { useState } from "react";
 import { Button, Card, Mono, PageHeader } from "@/components/ui";
 import { StatusBadge } from "@/components/status-badge";
-import { PROVING_STEPS } from "@/lib/mocks";
+import { PROVING_STEPS } from "@/lib/proving-steps";
 import { cn } from "@/lib/cn";
 import { generateEligibilityProof, commitmentToHex, type ProofResult } from "@/lib/prove";
+import { deriveIdentity, identityDerivationMessage } from "@/lib/identity";
 import { deployTxUrl } from "@/lib/chain";
 import { useCsprClick, publicKeyToAccountHash } from "@/lib/csprclick";
 import { ASSET_ID } from "@/lib/chain";
+
+type OnboardResult = {
+  account: string;
+  deployHash: string;
+  nullifier?: string;
+  storedProofSha256?: string;
+  screenScope?: string;
+};
 
 export function InvestorProving() {
   const { account, signMessage } = useCsprClick();
@@ -16,7 +25,8 @@ export function InvestorProving() {
   const [proving, setProving] = useState(false);
   const [proof, setProof] = useState<ProofResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [onboard, setOnboard] = useState<{ account: string; deployHash: string } | null>(null);
+  const [linkedEth, setLinkedEth] = useState("");
+  const [onboard, setOnboard] = useState<OnboardResult | null>(null);
   // the CONNECTED wallet is the holder; its account hash binds the credential.
   const walletPublicKey = account?.public_key ?? null;
   const walletAccount = walletPublicKey ? publicKeyToAccountHash(walletPublicKey) : null;
@@ -24,10 +34,14 @@ export function InvestorProving() {
   const done = step >= total - 1;
   const onProveStep = PROVING_STEPS[step]?.key === "prove";
 
-  // Full onboarding: the CONNECTED wallet -> issuer witness -> IN-BROWSER proof -> the
-  // visitor signs a holder-binding with their own wallet -> the server-side 2-of-3 quorum
-  // verifies + screens + attests -> a live on-chain credential. Quorum signing never
-  // leaves the server; the visitor only ever signs as the holder.
+  // Full onboarding, all gates blocking:
+  // 1. wallet signs the identity-derivation message -> identitySecret/salt derived and
+  //    kept IN THIS BROWSER; only Poseidon(identitySecret) goes to the server
+  // 2. wallet signs a server-issued single-use bind nonce (proves account control)
+  // 3. demo issuer signs the claim set for the identity commitment
+  // 4. groth16 proof generated in-browser from the locally assembled witness
+  // 5. server verifies proof + public-input binding + sanctions screen, then attests
+  //    with 2 server-held demo keys (single trust domain — labeled honestly)
   async function runProof(): Promise<void> {
     if (!walletAccount || !walletPublicKey) {
       setError("Connect your Casper wallet to onboard.");
@@ -38,45 +52,81 @@ export function InvestorProving() {
     setOnboard(null);
     try {
       const account = walletAccount;
-      const cRes = await fetch("/api/claims", {
+
+      // (1) derive the wallet-held identity secret — the signature never leaves here.
+      const idSig = await signMessage(identityDerivationMessage(account, ASSET_ID), walletPublicKey);
+      if (!idSig || idSig.cancelled || !idSig.signature) {
+        throw new Error("identity signature required — it derives your private identity secret");
+      }
+      const identity = await deriveIdentity(idSig.signature);
+
+      // (2) prove control of the account: sign the server's single-use bind nonce.
+      const bRes = await fetch("/api/bind", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ account }),
       });
+      const bind = (await bRes.json()) as { nonce?: string; message?: string; error?: string };
+      if (!bind.nonce || !bind.message) throw new Error(bind.error ?? "bind nonce failed");
+      const bindSig = await signMessage(bind.message, walletPublicKey);
+      if (!bindSig || bindSig.cancelled || !bindSig.signature) {
+        throw new Error("bind signature required — onboarding is blocked without proof of wallet control");
+      }
+
+      // (3) demo issuer signs the claim set for our identity commitment.
+      const cRes = await fetch("/api/claims", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          account,
+          publicKey: walletPublicKey,
+          nonce: bind.nonce,
+          signature: bindSig.signature,
+          idCommit: identity.idCommit,
+        }),
+      });
       const claims = (await cRes.json()) as { input?: Record<string, unknown>; error?: string };
       if (!claims.input) throw new Error(claims.error ?? "claims failed");
 
-      const result = await generateEligibilityProof(claims.input);
+      // (4) assemble the full witness LOCALLY (secret + salt never sent) and prove.
+      const witness = {
+        ...claims.input,
+        identitySecret: identity.identitySecret.toString(),
+        salt: identity.salt.toString(),
+      };
+      const result = await generateEligibilityProof(witness);
       setProof(result);
       setStep((s) => Math.min(total - 1, s + 1));
 
-      // The visitor signs the holder-binding with their own wallet. Proves control of the
-      // account being attested. Best-effort: a cancelled signature still onboards (the
-      // proof is itself bound to the account-derived witness).
-      const bindMessage = `Writ onboarding — bind ${account} to ${ASSET_ID}`;
-      let bindSignature: string | null = null;
-      try {
-        const sig = await signMessage(bindMessage, walletPublicKey);
-        if (sig && !sig.cancelled) bindSignature = sig.signature;
-      } catch {
-        bindSignature = null;
-      }
-
+      // (5) onboard — server verifies everything and stores THIS proof on-chain.
       const oRes = await fetch("/api/onboard", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           account,
           publicKey: walletPublicKey,
-          bindMessage,
-          bindSignature,
+          nonce: bind.nonce,
+          signature: bindSig.signature,
           proof: result.proof,
           publicSignals: result.publicSignals,
+          linkedEthAddress: linkedEth.trim() || undefined,
         }),
       });
-      const ob = (await oRes.json()) as { deployHash?: string; status?: string; error?: string };
+      const ob = (await oRes.json()) as {
+        deployHash?: string;
+        nullifier?: string;
+        storedProofSha256?: string;
+        screen?: { meta?: { scope?: string } };
+        error?: string;
+      };
       if (!ob.deployHash) throw new Error(ob.error ?? "onboard rejected");
-      setOnboard({ account, deployHash: ob.deployHash });
+      setOnboard({
+        account,
+        deployHash: ob.deployHash,
+        nullifier: ob.nullifier,
+        storedProofSha256: ob.storedProofSha256,
+        screenScope: ob.screen?.meta?.scope,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -89,7 +139,7 @@ export function InvestorProving() {
       <PageHeader
         eyebrow="Prove eligibility privately"
         title="Prove eligibility"
-        description="Prove you're eligible to hold the asset without uploading a single document. Your claims are proven in zero-knowledge — they never leave your device."
+        description="Prove eligibility in zero-knowledge. Your identity secret is derived from a wallet signature and stays in this browser — only the proof and its public signals are submitted. Claims are signed by the demo issuer (no external KYC provider is integrated)."
         actions={
           <span className="inline-flex items-center gap-2 rounded-full border border-active/20 bg-active-subtle px-3 py-1.5 text-xs font-medium text-active">
             <span aria-hidden>🔒</span> Zero-knowledge
@@ -147,8 +197,26 @@ export function InvestorProving() {
 
           <div className="mt-5 flex items-center gap-2 rounded-md bg-active-subtle px-3 py-2 text-xs text-active">
             <span aria-hidden>🔒</span>
-            Your documents never leave your device.
+            Your identity secret and witness stay in this browser — only the proof is sent.
           </div>
+
+          <label className="mt-4 block">
+            <span className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-ink-subtle">
+              Linked ETH address (optional)
+            </span>
+            <input
+              type="text"
+              value={linkedEth}
+              onChange={(e) => setLinkedEth(e.target.value)}
+              placeholder="0x… — screened against the live OFAC SDN ETH list"
+              spellCheck={false}
+              className="w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-xs font-mono text-ink"
+            />
+            <span className="mt-1 block text-[11px] leading-relaxed text-ink-subtle">
+              The live OFAC list holds ETH addresses, so only a linked ETH address can match it.
+              Casper-account matching uses a labeled demo denylist (illustrative).
+            </span>
+          </label>
 
           {proof && (
             <div className="mt-5 space-y-2 rounded-lg border border-active/30 bg-active-subtle p-4 text-xs">
@@ -163,8 +231,8 @@ export function InvestorProving() {
                 <Mono>{commitmentToHex(proof.nullifier).slice(0, 14)}…</Mono>
               </Row>
               <p className="leading-relaxed text-ink-subtle">
-                Only the proof + these public inputs are submitted to the quorum — your claims stay
-                on this device.
+                Only the proof + these public signals are submitted — your identity secret and
+                witness stay in this browser.
               </p>
             </div>
           )}
@@ -182,9 +250,16 @@ export function InvestorProving() {
                   <Mono>{onboard.deployHash.slice(0, 10)}… ↗</Mono>
                 </a>
               </Row>
+              {onboard.storedProofSha256 && (
+                <Row term="Stored proof (sha256)">
+                  <Mono>{onboard.storedProofSha256.slice(0, 14)}…</Mono>
+                </Row>
+              )}
               <p className="leading-relaxed text-ink-subtle">
-                The 2-of-3 quorum verified your proof, OFAC-screened, and co-signed an attestation.
-                You can now hold the asset.
+                Your proof was verified server-side and stored on-chain (your own proof bytes —
+                what any fraud challenge would re-verify). The attestation is co-signed by two
+                server-held demo keys from a single trust domain; the registry verifies both
+                signatures on-chain against its 3-key set. You can now hold the asset.
               </p>
             </div>
           )}

@@ -1,23 +1,39 @@
 /*
-  Server-side quorum auto-attest onboarding. A connected wallet submits its in-browser
-  proof + public signals; the server (1) guards the request, (2) binds the proof to the
-  witness it issued for that wallet, (3) verifies the groth16 proof, (4) OFAC-screens,
-  then (5) the 2-of-3 quorum (env keys) co-signs and attests on testnet — returning the
-  live credential. A sanctioned or invalid request is never attested.
+  Onboarding attestation. Order of gates — every one BLOCKING:
+
+  1. guards (rate limit, one-shot cap, testnet only)
+  2. wallet-control bind: nonce-bound, domain-separated, single-use signature —
+     an account can only be onboarded by the wallet that controls it
+  3. groth16 proof verification (snarkjs, server-side)
+  4. full public-input binding: nullifier/commitment taken from the verified proof;
+     issuerAx/issuerAy/assetId/allowedRoot must equal the canonical registry values
+  5. sanctions screening (live OFAC ETH list for the linked ETH address; labeled
+     demo Casper denylist) — unavailable/stale data refuses attestation
+  6. attest on-chain, storing the HOLDER'S OWN proof bytes (ark encoding of the
+     submitted snarkjs proof) with the holder's own public inputs
+
+  Honest labeling: the two attestation signatures come from env keys held by THIS
+  server process — a 2-signature demo attestation from one trust domain, not an
+  independent 2-of-3 quorum. The on-chain registry does verify both signatures
+  against its registered 3-key set with threshold 2.
 */
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { buildVisitorWitness } from "@/lib/server/issuer-input";
-import { screen } from "@/lib/server/screen";
-import { submitAttest, placeholderProofBytes } from "@/lib/server/quorum-attest";
+import { createHash } from "node:crypto";
+import { canonicalPublicValues, IssuerKeyMissingError } from "@/lib/server/issuer-input";
+import { screenParties, ScreeningUnavailableError } from "@/lib/server/screen";
+import { submitAttest } from "@/lib/server/quorum-attest";
+import { proofToArkBytes, arkBytesToProofCoords, MalformedProofError } from "@/lib/server/proof-serde";
 import { rateLimit, capCheck, markOnboarded, isTestnet } from "@/lib/server/guards";
-import { verifyBind } from "@/lib/server/verify-bind";
+import { verifyBindStrict } from "@/lib/server/bind";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const EXPIRY = 4_000_000_000;
+/** Credential lifetime (seconds). The registry enforces expiry on-chain
+    (get_block_time_secs); is_active flips false after this window. */
+const CREDENTIAL_TTL_SECS = Number(process.env.CREDENTIAL_TTL_SECS ?? 90 * 86_400);
 
 function accountHex(s: unknown): string | null {
   if (typeof s !== "string") return null;
@@ -31,18 +47,20 @@ export async function POST(req: Request): Promise<Response> {
 
   let body: {
     account?: unknown;
+    publicKey?: unknown;
+    nonce?: unknown;
+    signature?: unknown;
     proof?: unknown;
     publicSignals?: unknown;
-    publicKey?: unknown;
-    bindMessage?: unknown;
-    bindSignature?: unknown;
+    linkedEthAddress?: unknown;
   };
   try { body = await req.json(); } catch { return Response.json({ error: "bad json" }, { status: 400 }); }
 
   const account = accountHex(body.account);
   const proof = body.proof;
   const publicSignals = body.publicSignals;
-  if (!account || !proof || !Array.isArray(publicSignals) || publicSignals.length < 6) {
+  if (!account || !proof || !Array.isArray(publicSignals) || publicSignals.length !== 6 ||
+      publicSignals.some((s) => typeof s !== "string" || !/^\d+$/.test(s))) {
     return Response.json({ error: "account, proof, and publicSignals[6] required" }, { status: 400 });
   }
 
@@ -54,39 +72,79 @@ export async function POST(req: Request): Promise<Response> {
   const cap = capCheck(account);
   if (!cap.ok) return Response.json({ error: cap.reason }, { status: 409 });
 
-  try {
-    // (2) bind the proof to the witness the server issued for THIS wallet
-    const w = await buildVisitorWitness(account);
-    if (publicSignals[0] !== w.nullifier || publicSignals[1] !== w.commitment) {
-      return Response.json({ error: "proof does not match this wallet's issued witness" }, { status: 400 });
-    }
+  // (2) wallet-control bind — BLOCKING and single-use (nonce consumed here)
+  const bind = verifyBindStrict({
+    account, publicKey: body.publicKey, nonce: body.nonce, signature: body.signature, consume: true,
+  });
+  if (!bind.ok) {
+    return Response.json({ error: `wallet bind failed: ${bind.reason}` }, { status: 403 });
+  }
 
+  try {
     // (3) verify the groth16 proof server-side (never attest an invalid proof)
     const snarkjs = await import("snarkjs");
     const vkey = JSON.parse(await readFile(join(process.cwd(), "public", "circuit", "elig2_vkey.json"), "utf8"));
     const ok = await snarkjs.groth16.verify(vkey, publicSignals as string[], proof);
     if (!ok) return Response.json({ error: "invalid proof" }, { status: 400 });
 
-    // (4) OFAC screen — never attest a sanctioned wallet
-    const s = await screen(account.slice(0, 40));
-    if (!s.clean) return Response.json({ error: "screening: OFAC SDN hit", screen: s }, { status: 403 });
+    // (4) bind ALL public inputs to canonical registry values:
+    // [0] nullifier / [1] commitment come from the verified proof itself;
+    // [2..5] must equal the pinned issuer key, asset, and jurisdiction root.
+    const canonical = await canonicalPublicValues();
+    const [, , issuerAx, issuerAy, assetId, allowedRoot] = publicSignals as string[];
+    if (issuerAx !== canonical.issuerAx || issuerAy !== canonical.issuerAy) {
+      return Response.json({ error: "proof issuer key does not match the pinned issuer" }, { status: 400 });
+    }
+    if (assetId !== canonical.assetId) {
+      return Response.json({ error: "proof asset does not match this registry's asset" }, { status: 400 });
+    }
+    if (allowedRoot !== canonical.allowedRoot) {
+      return Response.json({ error: "proof jurisdiction root does not match the canonical root" }, { status: 400 });
+    }
 
-    // best-effort: confirm the visitor's wallet signed the holder-binding. Non-blocking —
-    // the proof above is already bound to this account's issued witness.
-    const bind = verifyBind(body.publicKey, body.bindMessage, body.bindSignature);
+    // (5) sanctions screening — fail-closed on unavailable/stale data
+    const linkedEthAddress = typeof body.linkedEthAddress === "string" && body.linkedEthAddress
+      ? body.linkedEthAddress : null;
+    const s = await screenParties({ casperAccountHex: account, linkedEthAddress });
+    if (!s.clean) {
+      return Response.json(
+        { error: `screening hit (${s.hit?.list})`, screen: s },
+        { status: 403 },
+      );
+    }
 
-    // (5) quorum co-sign + attest
-    const proofBytes = await placeholderProofBytes();
-    const res = await submitAttest({ holderHex: account, publicSignals: publicSignals as string[], proofBytes, expiry: EXPIRY });
+    // (6) attest, storing the holder's OWN proof bytes (no placeholder)
+    const proofBytes = proofToArkBytes(proof);
+    arkBytesToProofCoords(proofBytes); // round-trip sanity
+    const expiry = Math.floor(Date.now() / 1000) + CREDENTIAL_TTL_SECS;
+    const res = await submitAttest({
+      holderHex: account, publicSignals: publicSignals as string[], proofBytes, expiry,
+    });
     markOnboarded(account);
     return Response.json({
       status: "attested",
       deployHash: res.deployHash,
       commitment: "0x" + res.commitment,
-      bind,
-      screen: { source: s.source, listSize: s.listSize },
+      nullifier: "0x" + res.nullifier,
+      expiry,
+      storedProofSha256: createHash("sha256").update(proofBytes).digest("hex"),
+      bind: "verified",
+      attestation: {
+        model: "2 signatures from server-held demo keys (single trust domain)",
+        onChainCheck: "registry verifies both ed25519 signatures against its 3-key set, threshold 2",
+      },
+      screen: { screened: s.screened, meta: s.meta },
     });
   } catch (e) {
+    if (e instanceof ScreeningUnavailableError) {
+      return Response.json({ error: e.message }, { status: 503 });
+    }
+    if (e instanceof IssuerKeyMissingError) {
+      return Response.json({ error: e.message }, { status: 503 });
+    }
+    if (e instanceof MalformedProofError) {
+      return Response.json({ error: e.message }, { status: 400 });
+    }
     return Response.json({ error: e instanceof Error ? e.message : "onboard failed" }, { status: 500 });
   }
 }

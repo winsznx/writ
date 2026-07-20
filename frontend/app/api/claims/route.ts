@@ -1,11 +1,13 @@
 /*
-  Per-visitor eligibility witness (server-side). The connected wallet posts its account
-  hash; the demo KYC issuer signs a witness for an identitySecret DERIVED from that
-  wallet (unique nullifier). The browser then generates the groth16 proof from this
-  witness via lib/prove.ts and submits it to /api/onboard.
+  Demo-issuer claim signing. The caller must prove control of the account (bind
+  signature — BLOCKING) and supply idCommit = Poseidon(identitySecret) computed in
+  the browser. The server signs the demo claim set for that commitment and returns
+  the public witness parts. It never sees — and cannot derive — identitySecret or
+  salt, so it cannot rebuild the witness or generate the holder's proof.
 */
 
-import { buildVisitorWitness } from "@/lib/server/issuer-input";
+import { issueClaims, IssuerKeyMissingError, FIELD } from "@/lib/server/issuer-input";
+import { verifyBindStrict } from "@/lib/server/bind";
 import { rateLimit, isTestnet } from "@/lib/server/guards";
 
 export const dynamic = "force-dynamic";
@@ -23,15 +25,34 @@ export async function POST(req: Request): Promise<Response> {
   const rl = rateLimit(`claims:${ip}`);
   if (!rl.ok) return Response.json({ error: rl.reason }, { status: 429 });
 
-  let body: unknown;
+  let body: {
+    account?: unknown; publicKey?: unknown; nonce?: unknown; signature?: unknown; idCommit?: unknown;
+  };
   try { body = await req.json(); } catch { return Response.json({ error: "bad json" }, { status: 400 }); }
-  const account = accountHex((body as { account?: unknown })?.account);
+
+  const account = accountHex(body.account);
   if (!account) return Response.json({ error: "invalid account hash" }, { status: 400 });
 
+  // BLOCKING wallet-control check: no claims for an account the caller doesn't own.
+  const bind = verifyBindStrict({
+    account, publicKey: body.publicKey, nonce: body.nonce, signature: body.signature, consume: false,
+  });
+  if (!bind.ok) {
+    return Response.json({ error: `wallet bind failed: ${bind.reason}` }, { status: 403 });
+  }
+
+  const idCommit = typeof body.idCommit === "string" ? body.idCommit : null;
+  if (!idCommit || !/^\d+$/.test(idCommit) || BigInt(idCommit) >= FIELD) {
+    return Response.json({ error: "idCommit (decimal field element) required" }, { status: 400 });
+  }
+
   try {
-    const w = await buildVisitorWitness(account);
-    return Response.json({ input: w.input, commitment: w.commitment, nullifier: w.nullifier });
+    const issued = await issueClaims(idCommit);
+    return Response.json(issued);
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : "witness failed" }, { status: 500 });
+    if (e instanceof IssuerKeyMissingError) {
+      return Response.json({ error: e.message }, { status: 503 });
+    }
+    return Response.json({ error: e instanceof Error ? e.message : "claims failed" }, { status: 500 });
   }
 }

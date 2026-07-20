@@ -1,16 +1,23 @@
 /*
-  SERVER-ONLY. The 2-of-3 quorum co-sign + attest, reimplemented in pure Node (no
-  Rust signer). Proven byte-exact against the live v4 registry: canonical_message =
-  String.to_bytes(asset) || Key::Account.to_bytes(holder) || commitment[32] ||
-  nullifier[32] || u64.to_bytes(expiry); ed25519-signed (tag 01).
+  SERVER-ONLY. Attestation signing + submit, in pure Node (no Rust signer).
+
+  HONEST TRUST MODEL: this ONE server process holds two of the registry's three
+  registered quorum keys in env vars and produces both signatures itself — a
+  2-signature demo attestation from a single trust domain, NOT an independent
+  2-of-3 quorum. What IS real: the on-chain registry verifies both ed25519
+  signatures against its registered 3-key set with threshold 2, and only bonded
+  signer keys are accepted. Production would distribute the keys to independent
+  verifier services (the agent/ directory implements that shape for the CLI path).
+
+  canonical_message is byte-exact with registry.rs: String.to_bytes(asset) ||
+  Key::Account.to_bytes(holder) || commitment[32] || nullifier[32] ||
+  u64.to_bytes(expiry); ed25519-signed (tag 01).
 
   Keys come from env (testnet-only throwaway demo keys); NEVER imported client-side.
 */
 
 import "server-only";
 import { ed25519 } from "@noble/curves/ed25519";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import {
   DeployUtil, RuntimeArgs, CLValueBuilder, CLPublicKey, CLAccountHash, Keys,
 } from "casper-js-sdk";
@@ -66,9 +73,11 @@ export function publicInputsLe(signals: readonly string[]): Buffer {
 export type AttestResult = { deployHash: string; commitment: string; nullifier: string };
 
 /**
- * Co-sign with the env quorum keys and submit the attest to the v4 registry, paid by
- * the coordinator key. Returns the deploy hash. proofBytes is stored on-chain (the
- * registry does not re-verify it at attest; the proof is verified off-chain first).
+ * Co-sign with the env keys and submit the attest to the v4 registry, paid by the
+ * coordinator key. Returns the deploy hash. proofBytes MUST be the holder's own
+ * proof (ark encoding of the verified snarkjs proof) — it is stored on-chain and is
+ * exactly what challenge.resolve re-verifies. The registry does not re-verify it at
+ * attest; the server verifies the snarkjs proof before calling this.
  */
 export async function submitAttest(args: {
   holderHex: string;
@@ -122,11 +131,4 @@ export async function submitAttest(args: {
   const deployHash = json.result?.deploy_hash;
   if (!deployHash) throw new Error("no deploy hash from node");
   return { deployHash, commitment: commitment.toString("hex"), nullifier: nullifier.toString("hex") };
-}
-
-/** The stored proof placeholder (valid-format groth16 proof bytes). The visitor's
-    proof is verified off-chain by snarkjs before this; the registry stores but does
-    not re-verify the proof at attest. */
-export async function placeholderProofBytes(): Promise<Buffer> {
-  return readFile(join(process.cwd(), "public", "circuit", "proof.bin"));
 }
