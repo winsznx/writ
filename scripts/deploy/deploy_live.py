@@ -10,11 +10,13 @@ manifest. Resumable: re-running skips contracts already in the manifest.
   is the FILTER's CONTRACT hash (cep-78 calls it directly).
 """
 import json, re, subprocess, sys, time, os
+import pathlib
+REPO_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
 
 NODE = "https://node.testnet.casper.network/rpc"
 CHAIN = "casper-test"
 KEY = "/tmp/writ-keys/funded_secret_key.pem"
-C = "/Users/mac/writ/contracts"
+C = f"{REPO_ROOT}/contracts"
 ASSET = "writ-bond-001"
 DEPLOYER = "account-hash-f4a01d6b72731c6885e3b4ccdd535a5927b7dec344ed9ebb2b3f705b291a433a"
 TREASURY = DEPLOYER

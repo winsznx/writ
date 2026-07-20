@@ -10,9 +10,11 @@ usage: payable_tx.py <bond|challenge|fund> <secret-key> <challenge-pkg-hash> <am
   challenge: arg = holder account-hash (asset fixed = writ-bond-001)
 """
 import json, re, subprocess, sys, time
+import pathlib
+REPO_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
 
 NODE = "https://node.testnet.casper.network/rpc"; CHAIN = "casper-test"
-WASM = "/Users/mac/writ/contracts/writ-cep78/fork/target/wasm32-unknown-unknown/release/payable_caller.wasm"
+WASM = f"{REPO_ROOT}/contracts/writ-cep78/fork/target/wasm32-unknown-unknown/release/payable_caller.wasm"
 ASSET = "writ-bond-001"
 
 mode, key, chal, amt_cspr = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])

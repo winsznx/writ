@@ -8,9 +8,11 @@ Only step 2 is put-transaction (the permitted exception, part of the payable cal
 usage: payable_via_cargo.py <bond|challenge> <secret-key> <challenge-pkg> <amount-cspr> <attestor-hex|holder-acct> [asset]
 """
 import json, re, subprocess, sys, time
+import pathlib
+REPO_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
 
 NODE = "https://node.testnet.casper.network/rpc"; CHAIN = "casper-test"
-WASM = "/Users/mac/writ/contracts/writ-cep78/fork/target/wasm32-unknown-unknown/release/payable_caller.wasm"
+WASM = f"{REPO_ROOT}/contracts/writ-cep78/fork/target/wasm32-unknown-unknown/release/payable_caller.wasm"
 mode, key, chalpkg, amt_cspr, party = sys.argv[1:6]
 asset = sys.argv[6] if len(sys.argv) > 6 else "writ-bond-001"
 chalpkg = chalpkg if chalpkg.startswith("hash-") else "hash-" + chalpkg

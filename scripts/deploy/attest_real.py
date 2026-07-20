@@ -6,6 +6,8 @@ the nullifier/commitment args ARE those slices. proof = proof.bin. Quorum-signs
 (q1,q2) over the canonical payload via the project's writ-signer.
 """
 import json, re, subprocess, sys, time
+import pathlib
+REPO_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
 
 NODE = "https://node.testnet.casper.network/rpc"
 CHAIN = "casper-test"
@@ -16,8 +18,8 @@ ASSET = "writ-bond-001"
 HOLDER_HEX = "85d28e05f316f6468b1e96e319df620a0c2270bde6f876144ec441145002697b"
 EXPIRY = 4000000000
 
-pi = open("/Users/mac/writ/contracts/groth16-verifier/fixtures/inputs.bin", "rb").read()
-proof = open("/Users/mac/writ/contracts/groth16-verifier/fixtures/proof.bin", "rb").read()
+pi = open(f"{REPO_ROOT}/contracts/groth16-verifier/fixtures/inputs.bin", "rb").read()
+proof = open(f"{REPO_ROOT}/contracts/groth16-verifier/fixtures/proof.bin", "rb").read()
 assert len(pi) == 192, len(pi)
 NULL_HEX = pi[0:32].hex()
 COMMIT_HEX = pi[32:64].hex()

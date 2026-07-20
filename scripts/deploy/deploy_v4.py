@@ -6,17 +6,19 @@ writ-token), cep78(->writ_registry_filter), writ-token(->transfer-filter); wires
 grant_challenge(challenge package=the CONTRACT) + grant_officer(multisig acct).
 """
 import json, re, subprocess, sys, time, os
+import pathlib
+REPO_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
 
 NODE = "https://node.testnet.casper.network/rpc"; CHAIN = "casper-test"
-KEY = "/Users/mac/writ/internal/v4-keys/q1/secret_key.pem"
-C = "/Users/mac/writ/contracts"
+KEY = os.environ.get("DEPLOY_KEY", f"{REPO_ROOT}/internal/v4-keys/q1/secret_key.pem")
+C = f"{REPO_ROOT}/contracts"
 ASSET = "writ-bond-001"
 OFFICER = "account-hash-8580ff20c447444a38539c8ea92c9392e6240c0d4b8aee0264188ca09ebab6a4"
 TREASURY = "account-hash-50f4e6e85014d95f48678abbdb27c89b78da7119ec1f857bee562f24c1058bf6"
 FILTER_RAW = f"{C}/writ-cep78/fork/target/wasm32-unknown-unknown/release/writ_registry_filter.wasm"
-MANIFEST = "/Users/mac/writ/internal/v4-keys/manifest_v4.json"
+MANIFEST = f"{REPO_ROOT}/internal/v4-keys/manifest_v4.json"
 
-def q(n): return open(f"/Users/mac/writ/internal/v4-keys/q{n}/public_key_hex").read().strip()
+def q(n): return open(f"{REPO_ROOT}/internal/v4-keys/q{n}/public_key_hex").read().strip()
 def odra_cfg(k): return [
     {"name": "odra_cfg_package_hash_key_name", "type": "String", "value": k},
     {"name": "odra_cfg_allow_key_override", "type": "Bool", "value": True},

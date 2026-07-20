@@ -4,10 +4,12 @@
 the new package/contract hash into the manifest under cep78_v2.
 """
 import json, re, subprocess, sys, time
+import pathlib
+REPO_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
 
 NODE = "https://node.testnet.casper.network/rpc"; CHAIN = "casper-test"
 KEY = "/tmp/writ-keys/funded_secret_key.pem"
-CEP_WASM = "/Users/mac/writ/contracts/writ-cep78/wasm/cep78.wasm"
+CEP_WASM = f"{REPO_ROOT}/contracts/writ-cep78/wasm/cep78.wasm"
 FILTER_CONTRACT = "hash-f0152303b34bd5afacccd49a66946785f5c49154b1db398aaf607471c17103cc"
 
 args = [

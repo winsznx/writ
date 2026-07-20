@@ -1,3 +1,5 @@
+> **ARCHIVED — superseded by [DEPLOYMENT.md](./DEPLOYMENT.md) (the canonical V4 manifest).** Kept for development history; hashes below refer to earlier, non-canonical deployments.
+
 # Writ — live testnet deployment manifest
 
 Network: **casper-test** · node `https://node.testnet.casper.network/rpc` · explorer https://testnet.cspr.live

@@ -5,6 +5,8 @@ op REVERTS (filter 159 or a propagated registry revert = fail-safe). Interleaves
 registry state changes on the sender F to drive sender states.
 """
 import json, re, subprocess, sys, time
+import pathlib
+REPO_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
 
 NODE = "https://node.testnet.casper.network/rpc"; CHAIN = "casper-test"
 KEY = "/tmp/writ-keys/funded_secret_key.pem"
@@ -55,8 +57,8 @@ def revoke(h,label): return reg_call("revoke",[{"name":"asset_id","type":"String
 def officer(ep,h,label): return reg_call(ep,[{"name":"asset_id","type":"String","value":ASSET},{"name":"holder","type":"Key","value":h},{"name":"reason_hash","type":{"ByteArray":32},"value":RH}],label)
 def reattest_F():
     print("  (re-attest F -> Active)")
-    subprocess.run(["python3","/Users/mac/writ/scripts/deploy/attest_holder.py",
-        "f4a01d6b72731c6885e3b4ccdd535a5927b7dec344ed9ebb2b3f705b291a433a","/Users/mac/writ/circuits/build/fixtures_F"], check=True)
+    subprocess.run(["python3",f"{REPO_ROOT}/scripts/deploy/attest_holder.py",
+        "f4a01d6b72731c6885e3b4ccdd535a5927b7dec344ed9ebb2b3f705b291a433a",f"{REPO_ROOT}/circuits/build/fixtures_F"], check=True)
 
 def main():
     print(f"cep78_v2={CEP}  filter={MAN['cep78_v2']['filter']}")

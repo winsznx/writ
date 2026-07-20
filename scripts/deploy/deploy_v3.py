@@ -6,10 +6,12 @@ writ-token), cep78(->writ_registry_filter), writ-token(->transfer-filter); wires
 grant_challenge(challenge package=the CONTRACT) + grant_officer(multisig acct).
 """
 import json, re, subprocess, sys, time, os
+import pathlib
+REPO_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
 
 NODE = "https://node.testnet.casper.network/rpc"; CHAIN = "casper-test"
 KEY = "/tmp/writ-keys2/deployer_secret_key.pem"
-C = "/Users/mac/writ/contracts"
+C = f"{REPO_ROOT}/contracts"
 ASSET = "writ-bond-001"
 OFFICER = "account-hash-ba4c447b6f9852c9765f0b965a5cc8bfd8318a28b8e2d6b15cec8d7b1e00ad15"
 TREASURY = "account-hash-50f4e6e85014d95f48678abbdb27c89b78da7119ec1f857bee562f24c1058bf6"

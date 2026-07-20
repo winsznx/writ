@@ -3,6 +3,8 @@
 -> role-revocable registry). Sender F = deployer/key3 (the cep78 minter). Officer
 beats are run separately (post multisig config). Tx + outcome per beat."""
 import json, re, subprocess, sys, time
+import pathlib
+REPO_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
 
 NODE = "https://node.testnet.casper.network/rpc"; CHAIN = "casper-test"
 KEY = "/tmp/writ-keys2/deployer_secret_key.pem"
@@ -40,7 +42,7 @@ def xfer(t,s,g,l,e): return wait(submit(CEP,"transfer",[{"name":"token_id","type
 def revoke(h,l): return wait(submit(REG,"revoke",[{"name":"asset_id","type":"String","value":ASSET},{"name":"holder","type":"Key","value":h}],12000000000),l,"PROCEED")
 def reattest_F():
     print("  (re-attest F -> Active)")
-    subprocess.run(["python3","/Users/mac/writ/scripts/deploy/attest_v3.py","9711698476d5a4f529ad4c2bcc0232ba23d0725b029e482df69075d076b44b3b","/Users/mac/writ/circuits/build/fixtures_F"],check=True)
+    subprocess.run(["python3",f"{REPO_ROOT}/scripts/deploy/attest_v3.py","9711698476d5a4f529ad4c2bcc0232ba23d0725b029e482df69075d076b44b3b",f"{REPO_ROOT}/circuits/build/fixtures_F"],check=True)
 
 def main():
     print(f"cep78_v3={CEP}")
