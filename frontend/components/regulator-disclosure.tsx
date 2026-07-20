@@ -56,7 +56,7 @@ export function RegulatorDisclosure() {
       <PageHeader
         eyebrow="Verify disclosures"
         title="Disclosure & verification"
-        description="Verify a single compliance fact against the on-chain commitment — without exposing the rest of the book."
+        description="Verify a single compliance fact against the on-chain commitment — without exposing the rest of the book. Demo walkthrough: the disclosed preimage belongs to demo holder R and is intentionally public (a holder voluntarily revealing their own claims); the commitment it matches is the holder's real on-chain value."
       />
 
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">

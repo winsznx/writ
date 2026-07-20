@@ -28,11 +28,14 @@ type Scene = {
   cta: string;
 };
 
+// A SCRIPTED replay of the two real casper-test outcomes (the allowed transfer and
+// the recipient-aware deny, verified on-chain — see the proof links on /docs/verify).
+// Nothing in this widget talks to the chain; it is labeled "SCRIPTED DEMO" in the UI.
 const SCENES: Scene[] = [
   {
     command: "writ tx transfer WRIT-001 --to 0x4c2d…7b8a",
     logs: [
-      { text: "submitting deploy → casper-test rpc", tone: "dim" },
+      { text: "replaying deploy → casper-test (scripted)", tone: "dim" },
       { text: "filter ▸ asset frozen?  false", tone: "default" },
       { text: "filter ▸ sender revoked / frozen?  false", tone: "default" },
       { text: "filter ▸ recipient credential = ACTIVE?  ACTIVE", tone: "good" },
@@ -40,18 +43,18 @@ const SCENES: Scene[] = [
       { text: "✓ transfer settled · 1 block", tone: "good" },
     ],
     outcome: "allowed",
-    banner: "TRANSFER SETTLED ON-CHAIN",
+    banner: "TRANSFER SETTLED — scripted replay",
     code: "ok",
     caption: {
       lead: "An eligible holder, a compliant transfer.",
-      rest: "Settled on-chain in one block, and the issuer never touched a passport.",
+      rest: "A scripted replay of the real on-chain outcome — the verified transaction links are on the docs Verify page.",
     },
-    cta: "Send a compliant transfer",
+    cta: "Replay a compliant transfer",
   },
   {
     command: "writ tx transfer WRIT-001 --to 0x9f0b…a3e1",
     logs: [
-      { text: "submitting deploy → casper-test rpc", tone: "dim" },
+      { text: "replaying deploy → casper-test (scripted)", tone: "dim" },
       { text: "filter ▸ asset frozen?  false", tone: "default" },
       { text: "filter ▸ sender revoked / frozen?  false", tone: "default" },
       { text: "filter ▸ recipient credential = ACTIVE?  REVOKED", tone: "bad" },
@@ -59,32 +62,27 @@ const SCENES: Scene[] = [
       { text: "✗ execution reverted · user error 159", tone: "bad" },
     ],
     outcome: "denied",
-    banner: "TRANSFER DENIED ON-CHAIN",
+    banner: "TRANSFER DENIED — scripted replay",
     code: "revert 159",
     caption: {
       lead: "The holder's name appears nowhere.",
-      rest: "The chain enforced eligibility against a signed credential, never PII.",
+      rest: "A scripted replay of the real revert (user error 159) — the live deny transaction is verifiable on testnet.cspr.live.",
     },
-    cta: "Send to a sanctioned wallet",
+    cta: "Replay the sanctions deny",
   },
 ];
 
-const GENESIS_HEIGHT = 2_481_937;
-const GENESIS_TS = Date.now();
-const BLOCK_MS = 1600;
 const CHAR_MS = 26;
 const STAGGER_S = 0.5;
 const SETTLE_S = 0.5;
 const HOLD_MS = 2600;
 
-const currentHeight = () => GENESIS_HEIGHT + Math.floor((Date.now() - GENESIS_TS) / BLOCK_MS);
 const fmt = (d: Date) => d.toLocaleTimeString("en-GB", { hour12: false });
 
 export function DemoBlock() {
   const reduce = useReducedMotion();
   const [phase, setPhase] = useState<Phase>("idle");
   const [scene, setScene] = useState(0);
-  const [height, setHeight] = useState(GENESIS_HEIGHT);
   const [runId, setRunId] = useState(0);
   const [stamps, setStamps] = useState<string[]>([]);
   const [inView, setInView] = useState(false);
@@ -146,11 +144,6 @@ export function DemoBlock() {
   }, [play]);
 
   useEffect(() => {
-    const id = setInterval(() => setHeight(currentHeight()), BLOCK_MS);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
     const el = root.current;
     if (!el) return;
     const io = new IntersectionObserver(
@@ -204,13 +197,9 @@ export function DemoBlock() {
           <span className="ml-1 font-mono text-xs text-ink-subtle">writ@casper-test · filter</span>
         </div>
         <div className="flex items-center gap-3 font-mono text-xs text-ink-subtle">
-          <span className="hidden tabular-nums sm:inline">#{height.toLocaleString()}</span>
-          <span className="flex items-center gap-1.5">
-            <span aria-hidden className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-active animate-[writ-pulse-ring_1.6s_ease-out_infinite]" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-active" />
-            </span>
-            LIVE
+          <span className="flex items-center gap-1.5" title="This terminal is a scripted replay of real testnet outcomes — it does not talk to the chain. Verified tx links: /docs/verify">
+            <span aria-hidden className="relative inline-flex h-2 w-2 rounded-full bg-pending" />
+            SCRIPTED DEMO
           </span>
         </div>
       </div>
@@ -237,7 +226,7 @@ export function DemoBlock() {
 
         {phase === "idle" && (
           <p className="mt-2 text-white/35">
-            <span className="text-active/70">●</span> watching mempool for WRIT-001 transfers…
+            <span className="text-pending/70">●</span> scripted replay of verified casper-test outcomes — press play
           </p>
         )}
 
@@ -287,7 +276,7 @@ export function DemoBlock() {
               animate={{ rotate: 360 }}
               transition={{ duration: 0.8, ease: "linear", repeat: Infinity }}
             />
-            awaiting on-chain decision…
+            replaying the on-chain decision…
           </p>
         )}
 
@@ -328,7 +317,7 @@ export function DemoBlock() {
           whileHover={busy ? undefined : { scale: 1.02 }}
           whileTap={busy ? undefined : { scale: 0.97 }}
         >
-          {busy ? "Broadcasting…" : done ? "Replay" : sc.cta}
+          {busy ? "Replaying…" : done ? "Replay" : sc.cta}
         </motion.button>
       </div>
     </div>

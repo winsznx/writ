@@ -6,9 +6,10 @@
   registry and challenge contracts.
 
   The reads are live, but early test/seed attests left low-entropy junk holders on the
-  registry (0xfeedface…, 0x12341234…, etc.). We curate them out HERE (server-side) so
-  the roster shows the real story holders only — nothing is fabricated or mocked, only
-  non-story debris and reverted/duplicate rows are hidden.
+  registry (0xfeedface…, 0x12341234…, etc.). We curate them out HERE (server-side).
+  HONESTY RULE: curation must be visible — the returned view carries counts of hidden
+  rows and the UI displays them, so a reviewer can see exactly how much was filtered
+  and can cross-check the unfiltered set on cspr.live.
 */
 
 import { CONTRACTS, ASSET_ID } from "@/lib/chain";
@@ -67,7 +68,16 @@ export type RosterRow = {
   readonly txHash: string; // last status-changing deploy — clickable to cspr.live
 };
 
-export type RegistryView = { readonly roster: readonly RosterRow[]; readonly trail: readonly TrailEvent[] };
+export type RegistryView = {
+  readonly roster: readonly RosterRow[];
+  readonly trail: readonly TrailEvent[];
+  /** Disclosed curation: how many rows the server-side filters hid from the live data. */
+  readonly curation: {
+    readonly hiddenJunkEvents: number;
+    readonly hiddenRevertedEvents: number;
+    readonly hiddenPendingHolders: number;
+  };
+};
 
 async function cloud(path: string, key: string): Promise<{ data?: unknown[]; item_count?: number }> {
   const res = await fetch(`${BASE}${path}`, { headers: { Authorization: key }, cache: "no-store" });
@@ -165,12 +175,16 @@ export async function fetchRegistryView(key: string): Promise<RegistryView> {
   };
 
   const seenTx = new Set<string>();
+  let hiddenJunkEvents = 0;
   const events = [
     ...regDeploys.map((d) => toEvent(d, regNames)),
     ...chalDeploys.map((d) => toEvent(d, chalNames)),
   ]
     .filter((e) => arg2(e))
-    .filter((e) => !isJunkHolder(e.holder)) // curate seed/test junk holders
+    .filter((e) => {
+      if (isJunkHolder(e.holder)) { hiddenJunkEvents += 1; return false; } // disclosed curation
+      return true;
+    })
     .filter((e) => {
       if (seenTx.has(e.txHash)) return false; // dedupe
       seenTx.add(e.txHash);
@@ -188,9 +202,10 @@ export async function fetchRegistryView(key: string): Promise<RegistryView> {
     byHolder.set(e.holder, list);
   }
   const roster: RosterRow[] = [];
+  let hiddenPendingHolders = 0;
   for (const [holder, hes] of byHolder) {
     const status = statusFor(hes);
-    if (status === "PENDING") continue;
+    if (status === "PENDING") { hiddenPendingHolders += 1; continue; }
     const commitment = hes.find((e) => e.commitment)?.commitment ?? holder;
     const last = hes[hes.length - 1];
     roster.push({
@@ -204,9 +219,10 @@ export async function fetchRegistryView(key: string): Promise<RegistryView> {
   }
   roster.sort((a, b) => b.at.localeCompare(a.at));
 
-  // trail: real on-chain events only — drop reverted rows from the displayed history
+  // trail: successful on-chain events; reverted rows are hidden but counted
   const trail = events.filter((e) => e.ok).slice().reverse();
-  return { roster, trail };
+  const hiddenRevertedEvents = events.length - trail.length;
+  return { roster, trail, curation: { hiddenJunkEvents, hiddenRevertedEvents, hiddenPendingHolders } };
 }
 
 // keep only asset-relevant events (drop unrelated deploys to the same contracts)

@@ -6,6 +6,7 @@ export const DOCS_PAGES: readonly DocPage[] = [
   { slug: "problem", href: "/docs/problem", title: "The problem" },
   { slug: "how-it-works", href: "/docs/how-it-works", title: "How it works" },
   { slug: "trust-model", href: "/docs/trust-model", title: "The trust model" },
+  { slug: "whats-real", href: "/docs/whats-real", title: "What's real vs demo" },
   { slug: "verify", href: "/docs/verify", title: "Verify it yourself" },
   { slug: "architecture", href: "/docs/architecture", title: "Architecture" },
 ] as const;

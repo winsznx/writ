@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Card, Mono, PageHeader, SectionHeading, StatTile } from "@/components/ui";
 import { StatusBadge, type CredentialStatus } from "@/components/status-badge";
-import { RULE_SET, RE_SCREEN } from "@/lib/mocks";
 import { CONTRACTS, ASSET_ID, deployUrl, deployTxUrl } from "@/lib/chain";
 import { fetchRegistryView, type RosterRow, type TrailEvent } from "@/lib/cspr-cloud";
 
@@ -10,19 +9,24 @@ export const dynamic = "force-dynamic";
 
 const cep78Short = `${CONTRACTS.cep78.contract.slice(0, 10)}…${CONTRACTS.cep78.contract.slice(-4)}`;
 
+const NO_CURATION = { hiddenJunkEvents: 0, hiddenRevertedEvents: 0, hiddenPendingHolders: 0 };
+
 async function getView() {
   const key = process.env.CSPR_CLOUD_KEY;
-  if (!key) return { error: "CSPR_CLOUD_KEY not set in frontend/.env.local", roster: [], trail: [] };
+  if (!key) {
+    return { error: "CSPR_CLOUD_KEY not set in frontend/.env.local", roster: [], trail: [], curation: NO_CURATION };
+  }
   try {
     const v = await fetchRegistryView(key);
-    return { error: null as string | null, roster: v.roster, trail: v.trail };
+    return { error: null as string | null, roster: v.roster, trail: v.trail, curation: v.curation };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "live read failed", roster: [], trail: [] };
+    return { error: e instanceof Error ? e.message : "live read failed", roster: [], trail: [], curation: NO_CURATION };
   }
 }
 
 export default async function IssuerDashboard() {
-  const { error, roster, trail } = await getView();
+  const { error, roster, trail, curation } = await getView();
+  const hiddenTotal = curation.hiddenJunkEvents + curation.hiddenRevertedEvents + curation.hiddenPendingHolders;
 
   return (
     <div className="space-y-10">
@@ -46,7 +50,7 @@ export default async function IssuerDashboard() {
 
       {/* Asset overview */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Asset" value="Acme 2031 Senior Note" sub={ASSET_ID} />
+        <StatTile label="Asset (demo)" value="writ-rwa-bond-v4" sub={ASSET_ID} />
         <StatTile label="Standard" value="Real CEP-78" sub="recipient-aware filter" />
         <StatTile label="Credentialed" value={String(roster.length)} sub="live holders" />
         <StatTile label="NFT contract" value={cep78Short} sub="testnet.cspr.live" mono href={deployUrl(CONTRACTS.cep78.pkg)} />
@@ -54,7 +58,10 @@ export default async function IssuerDashboard() {
 
       {/* Holder roster — live */}
       <section>
-        <SectionHeading title="Holder roster" note="Live · commitments only, no identities" />
+        <SectionHeading
+          title="Holder roster"
+          note={`Live · commitments only, no identities${hiddenTotal > 0 ? ` · curation disclosed: ${curation.hiddenJunkEvents} staging events, ${curation.hiddenRevertedEvents} reverted events, ${curation.hiddenPendingHolders} incomplete holders hidden (full set on cspr.live)` : ""}`}
+        />
         <Card className="mt-4 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -91,24 +98,24 @@ export default async function IssuerDashboard() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section>
-          <SectionHeading title="Rule set" note="Officer-gated edit" />
+          <SectionHeading title="Rule set" note="From the deployed circuit + registry config" />
           <Card className="mt-4 p-5">
             <dl className="space-y-3 text-sm">
-              <Row term="Eligibility predicate"><Mono>{RULE_SET.predicate}</Mono></Row>
-              <Row term="Freshness window">{RULE_SET.freshnessWindow}</Row>
-              <Row term="Verification quorum">{RULE_SET.quorum}</Row>
-              <Row term="Re-screen cadence">{RULE_SET.reScreenCadence}</Row>
+              <Row term="Eligibility predicate"><Mono>accredited ∧ jurisdiction ∈ allowed-set ∧ ¬sanctioned</Mono></Row>
+              <Row term="Credential expiry">enforced on-chain per credential (registry rejects expired)</Row>
+              <Row term="Attestation">2 signatures, server-held demo keys — single trust domain; registry verifies 2-of-3 on-chain</Row>
+              <Row term="Issuer">demo issuer (no external KYC integrated)</Row>
             </dl>
           </Card>
         </section>
         <section>
-          <SectionHeading title="Re-screen status" />
+          <SectionHeading title="Sanctions screening" note="Honest scope — no background daemon" />
           <Card className="mt-4 p-5">
             <dl className="space-y-3 text-sm">
-              <Row term="Last sweep">{RE_SCREEN.lastSweep}</Row>
-              <Row term="Freshness">{RE_SCREEN.freshness}</Row>
-              <Row term="Open flags"><span className="font-medium text-pending">{RE_SCREEN.flags}</span></Row>
-              <Row term="Quorum health">{RE_SCREEN.quorumHealth}</Row>
+              <Row term="When">at onboarding / refresh only (no scheduled sweep)</Row>
+              <Row term="Live source">OFAC SDN digital-currency list (ETH addresses), fetched with content-hash + timestamp</Row>
+              <Row term="Casper mapping">labeled demo denylist — illustrative</Row>
+              <Row term="Unavailable data">refuses attestation (fail-closed)</Row>
             </dl>
           </Card>
         </section>
@@ -116,11 +123,12 @@ export default async function IssuerDashboard() {
 
       {/* Officer actions */}
       <section>
-        <SectionHeading title="Officer actions" note="Each requires the 2-of-3 multisig" />
+        <SectionHeading title="Officer actions" note="Demo UI — buttons not wired; on-chain path is real" />
         <Card className="mt-4 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-ink-muted">
-            Freeze, revoke, or override a credential. Every action is multisig-gated, logged
-            on-chain, and requires a reason.
+            The registry&apos;s officer entrypoints (freeze / revoke / reinstate) are live on-chain and
+            exercised by real testnet transactions. The officer role is held by a single demo key
+            — not a multisig — and these buttons are illustrative, not wired to a signer.
           </p>
           <div className="flex flex-wrap gap-2">
             <ActionChip>Freeze</ActionChip>

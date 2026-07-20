@@ -2,13 +2,12 @@ import Link from "next/link";
 import { ButtonLink, Card, Container, Eyebrow, Mono } from "@/components/ui";
 import { DemoBlock } from "@/components/landing/demo-block";
 import { ScrollFx } from "@/components/landing/scroll-fx";
-import { SITE } from "@/lib/site";
 
 const STEPS = [
   {
     n: "01",
     title: "Prove privately",
-    body: "The investor proves eligibility in zero-knowledge: accredited, in-jurisdiction, not sanctioned. No document ever leaves their device.",
+    body: "The investor proves eligibility in zero-knowledge: accredited, in-jurisdiction, not sanctioned. The identity secret is wallet-derived and stays in the browser; claims come from a demo issuer.",
   },
   {
     n: "02",
@@ -17,8 +16,8 @@ const STEPS = [
   },
   {
     n: "03",
-    title: "Re-screened at runtime",
-    body: "An autonomous agent re-screens holders against live sanctions and accreditation data — not a one-time check — and revokes the credential on-chain the moment a holder no longer qualifies.",
+    title: "Revocable at runtime",
+    body: "Credentials are re-screened at onboarding and refresh, and revocable on-chain at any time — the very next transfer after a revoke reverts. (Screening scope and its demo limits are disclosed in the docs.)",
   },
   {
     n: "04",
@@ -44,7 +43,7 @@ const COMPARE = [
   {
     point: "Screening",
     usual: "Point-in-time KYC: pass once, in forever",
-    writ: "Runtime re-screening against live data, by an autonomous agent",
+    writ: "Screened against live sanctions data at onboarding and refresh; revocable on-chain at any time",
   },
   {
     point: "Enforcement",
@@ -71,8 +70,8 @@ export default function LandingPage() {
               <span className="italic text-brand">for life.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-muted">
-              Every holder provably eligible, re-screened against live sanctions data, and blocked
-              on-chain the moment they&apos;re not, and your firm never touches a single piece of
+              Every holder provably eligible, screened against live sanctions data, and blocked
+              on-chain the moment their credential is revoked — and your firm never custodies
               investor PII.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -151,9 +150,9 @@ export default function LandingPage() {
               saw their name.
             </h2>
             <p className="mt-6 text-[15px] leading-relaxed text-ink-muted">
-              The recipient was an active holder until a sanctions list updated. The agent
-              re-screened, revoked the credential autonomously, and the very next transfer reverts
-              on-chain, fail-safe by default. The enforcement is real; the identity is invisible.
+              The recipient was an active holder until their credential was revoked through the
+              registry&apos;s sanctions path. The very next transfer reverts on-chain, fail-safe by
+              default. The enforcement is real; the identity is invisible.
             </p>
             <p className="mt-4 text-sm text-ink-subtle">
               A walkthrough of the real mechanism — the same recipient-aware CEP-78 filter that{" "}
@@ -203,19 +202,23 @@ export default function LandingPage() {
           <div data-reveal>
             <Eyebrow>The trust flex</Eyebrow>
             <h2 className="mt-4 font-serif text-3xl font-medium italic tracking-[-0.015em] text-ink sm:text-[2.75rem]">
-              &ldquo;You can&apos;t lie to it.&rdquo;
+              &ldquo;You can&apos;t publish a false proof.&rdquo;
             </h2>
           </div>
           <p data-reveal className="mt-6 text-lg leading-relaxed text-ink-muted">
-            Every eligibility decision is published as a proof anyone can verify. A false
-            attestation can be challenged on-chain, and a quorum that signed it gets its bond
-            slashed. The expensive cryptographic verification is paid only in a dispute, never on
-            the happy path.
+            Every credential stores the holder&apos;s own proof, published for anyone to verify.
+            An attestation whose stored proof is invalid can be challenged on-chain — the
+            verifier re-runs it, and the signers that attested it lose their bonds. The
+            expensive cryptographic verification is paid only in a dispute, never on the happy
+            path.
           </p>
           <p data-reveal className="mt-4 text-sm text-ink-subtle">
-            Security holds as long as the verifier quorum is honest <em>or</em> any single honest
-            watcher challenges a bad attestation during the dispute window — a 1-of-N trust model
-            the issuer can backstop itself.
+            Scope, stated precisely: the challenge verifies the stored proof; canonical
+            issuer/asset/jurisdiction-root pinning is a separate gate (onboarding service today,
+            with an on-chain registry entrypoint in the hardened build — README §12). Security
+            holds as long as the attestation operator is honest <em>or</em> any single honest
+            watcher challenges a bad attestation during the dispute window — a 1-of-N trust
+            model the issuer can backstop itself.
           </p>
         </Container>
       </section>
@@ -256,16 +259,18 @@ export default function LandingPage() {
           </div>
           <Card data-reveal className="mt-8 p-7">
             <p className="text-[15px] leading-relaxed text-ink">
-              Eligibility is proven in zero-knowledge, verified by a threshold of autonomous
-              agents. The chain stores signed credentials, enforces compliance at every transfer
-              via a native CEP-78 filter, and exposes published proofs for on-chain fraud
-              challenge, with off-chain selective disclosure to regulators.
+              Writ uses an honest on-chain/off-chain split: proofs are generated in the browser
+              and verified off-chain before attestation; Casper stores the signed credential —
+              commitment, nullifier, expiry, and the holder&apos;s own proof bytes — and enforces
+              transfer eligibility through a recipient-aware CEP-78 filter. The challenge path
+              re-verifies the published proof on-chain (Groth16, ~80 CSPR) to adjudicate disputes.
             </p>
           </Card>
           <p className="mt-5 text-sm leading-relaxed text-ink-subtle">
-            We never claim on-chain SNARK verification. On-chain pairing verification isn&apos;t
-            cost-viable on Casper today, so Writ verifies off-chain and commits on-chain, and says
-            so plainly. Honesty reads as senior.
+            We never claim SNARK verification at onboarding. In this demo the attestation is
+            co-signed by two server-held keys in one trust domain (the registry verifies both
+            against its 3-key set on-chain) and the claim issuer is a demo issuer — both stated
+            plainly here and in the docs.
           </p>
         </Container>
       </section>

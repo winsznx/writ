@@ -16,7 +16,7 @@ export default function DocsArchitecture() {
       <ul className="space-y-2.5 text-[15px]">
         <Contract pkg={CONTRACTS.registry.pkg} name="Credential Registry" job="per-holder credential (commitment, nullifier, status, bonded signer set); attest, revoke, officer actions, role grant/revoke/renounce." />
         <Contract pkg={CONTRACTS.verifier.pkg} name="Groth16 Verifier" job="on-chain pairing verification — used only by the fraud-challenge path." />
-        <Contract pkg={CONTRACTS.challenge.pkg} name="Challenge" job="economic fraud disputes: bond, challenge, resolve → slash + burn, withdraw." />
+        <Contract pkg={CONTRACTS.challenge.pkg} name="Challenge" job="economic fraud disputes: bond, challenge, resolve → slash + treasury transfer, withdraw." />
         <Contract pkg={CONTRACTS.filter.pkg} name="Transfer Filter" job="the recipient-aware CEP-78 hook — checks sender and recipient are live; fail-safe deny." />
         <Contract pkg={CONTRACTS.cep78.pkg} name="Writ CEP-78" job="the RWA bond NFT (real CEP-78), wired to the filter and mint-gated." />
         <Contract pkg={CONTRACTS.token.pkg} name="Writ Token" job="the writ-token and its Odra transfer filter." />

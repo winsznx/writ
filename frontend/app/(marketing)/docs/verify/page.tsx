@@ -32,8 +32,8 @@ export default function DocsVerify() {
         />
         <Proof
           href={deployTxUrl(DOCS_TX.fraudSlash)}
-          label="A fraudulent attestation is slashed — and 110 CSPR burned"
-          detail="resolve re-verifies the credential's own proof on-chain (Groth16 → false), revokes it for fraud, slashes the signers' bonds (500), pays the challenger, and burns the remainder to the treasury."
+          label="A fraudulent attestation is slashed — 110 CSPR to the treasury"
+          detail="resolve re-verifies the credential's own proof on-chain (Groth16 → false), revokes it for fraud, slashes the signers' bonds (500 CSPR), pays the challenger 640, and transfers the 110 remainder to the treasury account (spendable — a treasury transfer, not a burn)."
         />
       </div>
       <p className="text-sm text-ink-subtle">

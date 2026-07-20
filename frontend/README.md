@@ -23,8 +23,8 @@ npm run lint  # eslint
 | --- | --- |
 | `/` | Landing: hero, the two pains, how-it-works, the on-chain "DENIED" demo, differentiation, trust flex, verticals, the honest ZK claim, Built-on-Casper, CTA |
 | `/app` | Wallet-gated app shell + surface switcher |
-| `/app/issuer` | Compliance control room: pseudonymous holder roster, rule set, re-screen status, officer actions, audit trail |
-| `/app/investor` | ZK proving stepper: "your documents never leave your device" |
+| `/app/issuer` | Compliance control room: live pseudonymous holder roster (curation counts disclosed), real rule set, screening scope, officer actions (labeled demo UI), audit trail |
+| `/app/investor` | ZK proving stepper: wallet-derived identity secret + witness stay in the browser; demo-issuer claims; linked-ETH sanctions field |
 | `/app/regulator` | Selective-disclosure request + verdict |
 | `/docs` | Docs index (Mintlify-standard house convention) |
 | `/api/og` | Dynamic OG image (`next/og`) |

@@ -84,8 +84,10 @@ export function CsprClickProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!APP_ID || typeof window === "undefined") return;
     if (document.getElementById("csprclick-client")) {
-      setReady(true);
-      return;
+      // SDK script already injected (e.g. fast refresh) — defer the state sync so the
+      // effect body stays side-effect-only (react-hooks/set-state-in-effect).
+      const id = window.setTimeout(() => setReady(true), 0);
+      return () => window.clearTimeout(id);
     }
     window.clickUIOptions = { uiContainer: "csprclick-ui", rootAppElement: "body", defaultTheme: "light" };
     window.clickSDKOptions = {

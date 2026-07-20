@@ -12,9 +12,13 @@ export default function DocsHowItWorks() {
     >
       <Step n="01" title="Private onboarding">
         The investor proves eligibility — accredited, in-jurisdiction, not sanctioned — in
-        zero-knowledge, <strong>in their browser</strong>. The claims never leave the device. A
-        server-side 2-of-3 quorum verifies that proof off-chain and runs live OFAC screening, then
-        co-signs a credential the registry commits on-chain.
+        zero-knowledge, <strong>in their browser</strong>. The identity secret is derived from a
+        wallet signature and stays in the browser; the eligibility claims are signed by a{" "}
+        <strong>demo issuer</strong> (no external KYC provider is integrated). The server verifies
+        the proof off-chain, binds every public input, runs sanctions screening (live OFAC ETH
+        list for a linked address; a labeled demo denylist for Casper accounts), and co-signs with
+        two server-held demo keys — a single trust domain, verified 2-of-3 by the registry
+        on-chain. The credential stored on-chain includes the holder&apos;s own proof bytes.
       </Step>
       <Step n="02" title="Gated transfer">
         The asset is a real CEP-78 NFT wired to a recipient-aware transfer filter. Every transfer
