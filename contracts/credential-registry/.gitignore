@@ -4,5 +4,8 @@
 Cargo.lock
 .backend*
 .builder*
-/wasm
+# wasm/ holds the exact deployed CredentialRegistry.wasm (committed deliberately —
+# the fork E2E suite and deploy_v4.py consume it from a clean clone; see DEPLOYMENT.md)
+/wasm/*
+!/wasm/CredentialRegistry.wasm
 .env

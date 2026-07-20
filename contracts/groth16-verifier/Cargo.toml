@@ -11,6 +11,8 @@ ark-serialize = { version = "0.5", default-features = false }
 ark-std = { version = "0.5", default-features = false }
 
 [dev-dependencies]
+ark-ec = { version = "0.5", default-features = false }
+ark-ff = { version = "0.5", default-features = false }
 odra-test = { version = "2.8.0", features = [], default-features = false }
 
 [build-dependencies]

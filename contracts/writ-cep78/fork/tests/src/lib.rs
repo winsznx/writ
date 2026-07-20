@@ -38,4 +38,5 @@ mod acl;
 // A collection of helper methods and constants.
 #[cfg(test)]
 mod utility;
+mod writ_registry_smoke;
 mod writ_smoke;

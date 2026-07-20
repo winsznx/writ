@@ -8,7 +8,8 @@ CARGO_BUILD_FLAGS := -Z build-std=std,panic_abort
 # List of session and contract crates
 SESSION_CRATES := balance_of_session get_approved_session is_approved_for_all_session \
                   mint_session owner_of_session transfer_session updated_receipts
-CONTRACT_CRATES := mangle_named_keys minting_contract transfer_filter_contract
+CONTRACT_CRATES := mangle_named_keys minting_contract transfer_filter_contract \
+                   writ_filter writ_registry_filter
 ALL_CRATES := cep78 $(SESSION_CRATES) $(CONTRACT_CRATES)
 VERSIONS :=
 
@@ -47,6 +48,7 @@ setup-test: build-all-contracts
 	)
 
 	cp $(WASM_TARGET_DIR)/*.wasm $(WASM_OUTPUT_DIR)
+	cp ../../credential-registry/wasm/CredentialRegistry.wasm $(WASM_OUTPUT_DIR)
 
 .PHONY: test
 test: setup-test

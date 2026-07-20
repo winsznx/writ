@@ -27,16 +27,22 @@ const VK_BYTES: &[u8] = include_bytes!("../fixtures/vk_uncompressed.bin");
 /// A BN254 scalar-field element is 32 bytes (canonical little-endian).
 const FR_LEN: usize = 32;
 
-/// Pure pairing-check verify. `_unchecked` deserialization mirrors the
-/// `new_unchecked` construction the off-chain conversion used (no curve/subgroup
-/// re-check); soundness rests on the Groth16 pairing equation. Any malformed
-/// input is a clean `false`, never a panic/revert.
+/// Pure pairing-check verify with CHECKED deserialization of all caller-supplied
+/// material: proof points must be on-curve AND in the correct subgroup, public
+/// inputs must be canonical field elements (< r). Any malformed input is a clean
+/// `false`, never a panic/revert.
+///
+/// The VK alone stays on the `_unchecked` path at runtime: it is a compile-time
+/// constant from the project's own trusted build (not caller input), and the test
+/// suite validates the exact same bytes with fully CHECKED deserialization
+/// (`vk_bytes_pass_checked_deserialization`), so the runtime skip costs nothing
+/// in soundness while avoiding a redundant per-call subgroup sweep over the VK.
 fn verify_groth16(proof_bytes: &[u8], inputs_concat: &[u8]) -> bool {
     let vk = match VerifyingKey::<Bn254>::deserialize_uncompressed_unchecked(VK_BYTES) {
         Ok(v) => v,
         Err(_) => return false,
     };
-    let proof = match Proof::<Bn254>::deserialize_uncompressed_unchecked(proof_bytes) {
+    let proof = match Proof::<Bn254>::deserialize_uncompressed(proof_bytes) {
         Ok(p) => p,
         Err(_) => return false,
     };
@@ -45,7 +51,7 @@ fn verify_groth16(proof_bytes: &[u8], inputs_concat: &[u8]) -> bool {
     }
     let mut inputs = Vec::with_capacity(inputs_concat.len() / FR_LEN);
     for chunk in inputs_concat.chunks(FR_LEN) {
-        match Fr::deserialize_uncompressed_unchecked(chunk) {
+        match Fr::deserialize_uncompressed(chunk) {
             Ok(f) => inputs.push(f),
             Err(_) => return false,
         }
@@ -117,6 +123,86 @@ mod tests {
         assert!(
             !contract.verify(proof(), inputs_tampered()),
             "a tampered public input must verify false"
+        );
+    }
+
+    #[test]
+    fn vk_bytes_pass_checked_deserialization() {
+        // The runtime keeps the compile-time VK on the unchecked path; this test
+        // holds the exact embedded bytes to the FULL checked standard (on-curve +
+        // subgroup for every VK point).
+        VerifyingKey::<Bn254>::deserialize_uncompressed(VK_BYTES)
+            .expect("embedded VK must satisfy checked deserialization");
+    }
+
+    #[test]
+    fn malformed_proof_rejected() {
+        let (_env, contract) = setup();
+        assert!(!contract.verify(Bytes::from(vec![]), inputs()));
+        assert!(!contract.verify(Bytes::from(vec![0u8; 255]), inputs()));
+        assert!(!contract.verify(Bytes::from(vec![0xffu8; 256]), inputs()));
+    }
+
+    #[test]
+    fn off_curve_proof_point_rejected() {
+        // Corrupt A.y so (x, y) is (almost surely) off-curve but still a valid
+        // field encoding — checked deserialization must reject it.
+        let (_env, contract) = setup();
+        let mut bytes = include_bytes!("../fixtures/proof.bin").to_vec();
+        bytes[32] ^= 0x01; // low bit of A.y
+        assert!(
+            !contract.verify(Bytes::from(bytes), inputs()),
+            "an off-curve proof point must be rejected"
+        );
+    }
+
+    #[test]
+    fn non_subgroup_g2_point_rejected() {
+        use ark_bn254::{Fq, Fq2, G2Affine};
+        use ark_ec::AffineRepr;
+        use ark_ff::Field;
+        use ark_serialize::CanonicalSerialize;
+
+        // Find a point ON the G2 curve but OUTSIDE the r-order subgroup (the G2
+        // cofactor is huge, so any solved point is out-of-subgroup w.h.p.).
+        let b = G2Affine::generator().y().unwrap().square()
+            - G2Affine::generator().x().unwrap().square() * G2Affine::generator().x().unwrap();
+        let mut found = None;
+        for i in 1u64..200 {
+            let x = Fq2::new(Fq::from(i), Fq::from(0u64));
+            if let Some(y) = (x.square() * x + b).sqrt() {
+                let p = G2Affine::new_unchecked(x, y);
+                if p.is_on_curve() && !p.is_in_correct_subgroup_assuming_on_curve() {
+                    found = Some(p);
+                    break;
+                }
+            }
+        }
+        let rogue = found.expect("an on-curve, out-of-subgroup G2 point exists in range");
+
+        // Splice the rogue point into the B slot (bytes 64..192) of a valid proof.
+        let mut bytes = include_bytes!("../fixtures/proof.bin").to_vec();
+        let mut rogue_bytes = Vec::new();
+        rogue.serialize_uncompressed(&mut rogue_bytes).unwrap();
+        bytes[64..192].copy_from_slice(&rogue_bytes);
+
+        let (_env, contract) = setup();
+        assert!(
+            !contract.verify(Bytes::from(bytes), inputs()),
+            "an out-of-subgroup G2 point must be rejected by checked deserialization"
+        );
+    }
+
+    #[test]
+    fn non_canonical_field_element_rejected() {
+        // 32 bytes of 0xff encode a value >= r — checked Fr deserialization must
+        // reject the non-canonical input.
+        let (_env, contract) = setup();
+        let mut bad_inputs = include_bytes!("../fixtures/inputs.bin").to_vec();
+        bad_inputs[0..32].copy_from_slice(&[0xffu8; 32]);
+        assert!(
+            !contract.verify(proof(), Bytes::from(bad_inputs)),
+            "a non-canonical (>= r) public input must be rejected"
         );
     }
 }

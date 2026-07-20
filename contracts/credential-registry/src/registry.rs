@@ -123,6 +123,11 @@ pub enum RegistryError {
     NotReinstatable = 18,
     /// `officer_unfreeze` on a credential frozen by an in-flight challenge.
     ChallengePending = 19,
+    /// Public inputs [2..6] (issuer key, asset id, allowed root) do not match the
+    /// canonical values pinned on-chain via `set_canonical_inputs`.
+    CanonicalInputMismatch = 20,
+    /// The asset id string exceeds 31 bytes and cannot encode as one field element.
+    AssetIdTooLong = 21,
 }
 
 /// Emitted on every human officer override so the regulator trail distinguishes
@@ -222,6 +227,33 @@ enum NotLive {
     NotActive,
 }
 
+/// Canonical circuit public values pinned on-chain (all 32-byte little-endian
+/// field encodings, matching the `public_inputs` layout). Once set by the admin,
+/// `attest` rejects any credential whose public inputs [2..6] differ — closing
+/// the "malicious QUORUM_ROLE caller attests a proof for a forged issuer /
+/// foreign asset / attacker-controlled jurisdiction root" gap on-chain.
+#[odra::odra_type]
+pub struct CanonicalInputs {
+    pub issuer_ax: [u8; 32],
+    pub issuer_ay: [u8; 32],
+    pub allowed_root: [u8; 32],
+}
+
+/// The asset id string as the circuit encodes it: the UTF-8 bytes read as a
+/// big-endian integer, emitted as a 32-byte little-endian field element. Only
+/// defined for asset ids of at most 31 bytes (always below the BN254 modulus).
+fn asset_id_le32(asset_id: &str) -> Option<[u8; 32]> {
+    let bytes = asset_id.as_bytes();
+    if bytes.is_empty() || bytes.len() > 31 {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    for (i, b) in bytes.iter().rev().enumerate() {
+        out[i] = *b;
+    }
+    Some(out)
+}
+
 #[odra::module(errors = RegistryError, events = [OfficerAction, CredentialAttested, CredentialRevoked])]
 pub struct CredentialRegistry {
     /// Public keys whose signatures count toward the threshold.
@@ -243,6 +275,9 @@ pub struct CredentialRegistry {
     /// quorum key -> count of still-challengeable credentials it signed. The
     /// Challenge contract's withdraw guard requires this to be zero.
     outstanding: Mapping<PublicKey, u64>,
+    /// Canonical issuer key / allowed root pinned on-chain (unset = legacy
+    /// behavior: only nullifier/commitment are bound at attest).
+    canonical_inputs: Var<CanonicalInputs>,
     access: SubModule<AccessControl>,
 }
 
@@ -308,6 +343,23 @@ impl CredentialRegistry {
         let pi = public_inputs.as_slice();
         if pi.len() != 192 || pi[0..32] != nullifier[..] || pi[32..64] != commitment[..] {
             env.revert(RegistryError::PublicInputBindingMismatch);
+        }
+
+        // When canonical inputs are pinned, the remaining four public inputs must
+        // match them exactly: issuer key, this asset's field encoding, and the
+        // allowed-jurisdiction root. A proof for a forged issuer, a different
+        // asset, or an attacker-chosen root is rejected ON-CHAIN even if a
+        // QUORUM_ROLE caller signs it.
+        if let Some(canon) = self.canonical_inputs.get() {
+            let asset_le = asset_id_le32(&asset_id)
+                .unwrap_or_else(|| env.revert(RegistryError::AssetIdTooLong));
+            if pi[64..96] != canon.issuer_ax[..]
+                || pi[96..128] != canon.issuer_ay[..]
+                || pi[128..160] != asset_le[..]
+                || pi[160..192] != canon.allowed_root[..]
+            {
+                env.revert(RegistryError::CanonicalInputMismatch);
+            }
         }
 
         // Same-slot refresh is allowed; reuse by a different (asset, holder) is a
@@ -631,6 +683,27 @@ impl CredentialRegistry {
         let addr =
             Address::try_from(officer).unwrap_or_revert_with(&env, RegistryError::InvalidOfficerKey);
         self.access.unchecked_grant_role(&OFFICER_ROLE, &addr);
+    }
+
+    /// Admin: pin the canonical circuit public values (issuer key + allowed
+    /// jurisdiction root, 32-byte LE field encodings). Once set, every `attest`
+    /// enforces public inputs [2..6] against them on-chain (the asset id is
+    /// derived from the call's own `asset_id` argument). Part of the post-wiring
+    /// hardening sequence, alongside role grants.
+    pub fn set_canonical_inputs(
+        &mut self,
+        issuer_ax: [u8; 32],
+        issuer_ay: [u8; 32],
+        allowed_root: [u8; 32],
+    ) {
+        let env = self.env();
+        self.access.check_role(&DEFAULT_ADMIN_ROLE, &env.caller());
+        self.canonical_inputs.set(CanonicalInputs { issuer_ax, issuer_ay, allowed_root });
+    }
+
+    /// The pinned canonical inputs, if configured (read path for dashboards/audit).
+    pub fn get_canonical_inputs(&self) -> Option<CanonicalInputs> {
+        self.canonical_inputs.get()
     }
 
     /// Admin: claw back any `role` from `account` (e.g. an emergency revoke of
@@ -1993,6 +2066,132 @@ mod tests {
         assert_eq!(
             registry.get_credential(ASSET.into(), holder).unwrap().status,
             Status::Revoked
+        );
+    }
+
+    // ---- canonical public-input pinning (on-chain issuer/asset/root binding) ----
+
+    const CANON_AX: [u8; 32] = [0xA1; 32];
+    const CANON_AY: [u8; 32] = [0xB2; 32];
+    const CANON_ROOT: [u8; 32] = [0xC3; 32];
+
+    fn full_pub_inputs(
+        commit: &[u8; 32],
+        null: &[u8; 32],
+        ax: &[u8; 32],
+        ay: &[u8; 32],
+        asset: &str,
+        root: &[u8; 32],
+    ) -> Bytes {
+        let mut v: Vec<u8> = Vec::with_capacity(192);
+        v.extend_from_slice(null);
+        v.extend_from_slice(commit);
+        v.extend_from_slice(ax);
+        v.extend_from_slice(ay);
+        v.extend_from_slice(&asset_id_le32(asset).unwrap());
+        v.extend_from_slice(root);
+        Bytes::from(v)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn try_attest_with_inputs(
+        env: &HostEnv,
+        registry: &mut CredentialRegistryHostRef,
+        holder_idx: usize,
+        null: [u8; 32],
+        inputs: Bytes,
+    ) -> Result<(), OdraError> {
+        let holder = key_of(env, holder_idx);
+        let commit = [0x11u8; 32];
+        let (signers, sigs) = sign_with(env, &[0, 1], ASSET, &holder, &commit, &null, FAR_FUTURE);
+        registry
+            .try_attest(
+                ASSET.into(),
+                holder,
+                commit,
+                null,
+                FAR_FUTURE,
+                dummy_proof(),
+                inputs,
+                signers,
+                sigs,
+            )
+            .map(|_| ())
+    }
+
+    #[test]
+    fn canonical_binding_accepts_matching_inputs() {
+        let (env, mut registry) = setup();
+        registry.set_canonical_inputs(CANON_AX, CANON_AY, CANON_ROOT);
+        assert!(registry.get_canonical_inputs().is_some());
+        let commit = [0x11u8; 32];
+        let inputs = full_pub_inputs(&commit, &[0x21u8; 32], &CANON_AX, &CANON_AY, ASSET, &CANON_ROOT);
+        try_attest_with_inputs(&env, &mut registry, 7, [0x21u8; 32], inputs)
+            .expect("matching canonical inputs must attest");
+        env.advance_block_time((WINDOW + 1) * 1000);
+        assert!(registry.is_active(ASSET.into(), key_of(&env, 7)));
+    }
+
+    #[test]
+    fn canonical_wrong_issuer_rejected_on_chain() {
+        let (env, mut registry) = setup();
+        registry.set_canonical_inputs(CANON_AX, CANON_AY, CANON_ROOT);
+        // a QUORUM_ROLE caller signs a credential whose proof names a forged issuer
+        let inputs =
+            full_pub_inputs(&[0x11u8; 32], &[0x22u8; 32], &[0xEE; 32], &CANON_AY, ASSET, &CANON_ROOT);
+        assert_eq!(
+            try_attest_with_inputs(&env, &mut registry, 7, [0x22u8; 32], inputs).unwrap_err(),
+            RegistryError::CanonicalInputMismatch.into()
+        );
+    }
+
+    #[test]
+    fn canonical_wrong_asset_rejected_on_chain() {
+        let (env, mut registry) = setup();
+        registry.set_canonical_inputs(CANON_AX, CANON_AY, CANON_ROOT);
+        // public inputs carry ANOTHER asset's field encoding — a proof for one
+        // asset cannot activate a credential slot for this one
+        let inputs = full_pub_inputs(
+            &[0x11u8; 32], &[0x23u8; 32], &CANON_AX, &CANON_AY, "some-other-asset", &CANON_ROOT,
+        );
+        assert_eq!(
+            try_attest_with_inputs(&env, &mut registry, 7, [0x23u8; 32], inputs).unwrap_err(),
+            RegistryError::CanonicalInputMismatch.into()
+        );
+    }
+
+    #[test]
+    fn canonical_wrong_root_rejected_on_chain() {
+        let (env, mut registry) = setup();
+        registry.set_canonical_inputs(CANON_AX, CANON_AY, CANON_ROOT);
+        // attacker-controlled jurisdiction root
+        let inputs =
+            full_pub_inputs(&[0x11u8; 32], &[0x24u8; 32], &CANON_AX, &CANON_AY, ASSET, &[0xDD; 32]);
+        assert_eq!(
+            try_attest_with_inputs(&env, &mut registry, 7, [0x24u8; 32], inputs).unwrap_err(),
+            RegistryError::CanonicalInputMismatch.into()
+        );
+    }
+
+    #[test]
+    fn set_canonical_inputs_admin_only_and_unset_keeps_legacy_behavior() {
+        let (env, mut registry) = setup();
+        // unset config -> legacy behavior: placeholder inputs [2..6] still attest
+        let holder = key_of(&env, 7);
+        attest_holder(&env, &mut registry, holder, [0x58; 32]);
+        // non-admin cannot pin canonical inputs
+        env.set_caller(env.get_account(9));
+        assert!(registry
+            .try_set_canonical_inputs(CANON_AX, CANON_AY, CANON_ROOT)
+            .is_err());
+        // admin can
+        env.set_caller(env.get_account(0));
+        registry.set_canonical_inputs(CANON_AX, CANON_AY, CANON_ROOT);
+        // and from then on placeholder inputs are rejected
+        let inputs = pub_inputs(&[0x11u8; 32], &[0x25u8; 32]);
+        assert_eq!(
+            try_attest_with_inputs(&env, &mut registry, 8, [0x25u8; 32], inputs).unwrap_err(),
+            RegistryError::CanonicalInputMismatch.into()
         );
     }
 }
