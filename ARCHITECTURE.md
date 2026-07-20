@@ -32,9 +32,24 @@ This is the most important thing to understand about Writ.
 
 **Off-chain** — at onboarding time:
 
-- The investor generates a Groth16-BN254 eligibility proof entirely in-browser using snarkjs. Claims never leave the device.
-- The Next.js API route (server-only, Railway) runs live OFAC SDN screening (`frontend/lib/server/screen.ts`), then the 2-of-3 quorum signs the canonical payload with ed25519 (`frontend/lib/server/quorum-attest.ts`).
-- The snarkjs proof is verified off-chain by the server before signing; the on-chain registry stores the proof and public inputs but **does not run a SNARK at attest time**.
+- The investor's identity secret and salt are derived from a **wallet signature in
+  the browser** (`frontend/lib/identity.ts`) and never leave it; the server only
+  ever sees `Poseidon(identitySecret)`. The demo issuer signs the claim set for
+  that commitment (`frontend/lib/server/issuer-input.ts` — key required via env,
+  fails closed; **no external KYC provider is integrated**).
+- The investor generates the Groth16-BN254 eligibility proof entirely in-browser
+  using snarkjs from the locally assembled witness.
+- The Next.js API route (server-only, Railway) verifies a **mandatory nonce-bound
+  wallet signature** proving control of the account (`frontend/lib/server/bind.ts`,
+  blocking + single-use), verifies the proof, binds all six public inputs to the
+  pinned issuer/asset/root, and runs sanctions screening
+  (`frontend/lib/server/screen.ts` — live OFAC ETH list for a linked address,
+  labeled demo denylist for Casper accounts, fail-closed on stale data). Then two
+  attestation signatures are produced by env keys held by this one server process
+  (`frontend/lib/server/quorum-attest.ts`) — **a single trust domain, not an
+  independent quorum**.
+- The on-chain registry stores the holder's own proof and public inputs but
+  **does not run a SNARK at attest time**.
 
 **On-chain** — at attest time:
 
@@ -62,7 +77,7 @@ Public interface: one entrypoint.
 verify(proof: Bytes, public_inputs: Bytes) -> bool
 ```
 
-`public_inputs` is 6 × 32-byte BN254 scalar-field elements (little-endian), canonical circuit order: `[nullifier, commitment, issuerAx, issuerAy, assetId, allowedRoot]`. Any malformed input returns `false`; it never panics or reverts.
+`public_inputs` is 6 × 32-byte BN254 scalar-field elements (little-endian), canonical circuit order: `[nullifier, commitment, issuerAx, issuerAy, assetId, allowedRoot]`. Deserialization of caller-supplied material is **checked** (on-curve + subgroup for proof points, canonical range for field elements — added in the hardening pass; the deployed testnet instance predates this and is scheduled for redeploy, disclosed in README §12). Any malformed input returns `false`; it never panics or reverts.
 
 **Called exclusively by the challenge contract's `resolve` path.** It is never called at onboarding.
 
@@ -88,13 +103,14 @@ The on-chain heart of the compliance layer. Stores per-holder eligibility creden
 | Role | Holder | Authority |
 |---|---|---|
 | `QUORUM_ROLE` | Agent operator account | `attest`, `revoke` |
-| `OFFICER_ROLE` | Compliance officer multisig account (M-of-N Casper associated keys) | `officer_freeze/unfreeze/revoke/reinstate`, `freeze_asset/unfreeze_asset` |
+| `OFFICER_ROLE` | Compliance officer account (demo: a single key; production: Casper M-of-N associated-key multisig) | `officer_freeze/unfreeze/revoke/reinstate`, `freeze_asset/unfreeze_asset` |
 | `CHALLENGE_ROLE` | Challenge contract | `freeze`, `unfreeze`, `revoke_fraud`, `set_bonded` |
 | `DEFAULT_ADMIN_ROLE` | Deployer (renounced post-wiring) | `grant_challenge`, `grant_officer`, `revoke_role` |
 
 Key entrypoints:
 
-- `attest` — writes a credential after verifying quorum ed25519 signatures over the canonical message and enforcing the public-input binding.
+- `attest` — writes a credential after verifying quorum ed25519 signatures over the canonical message and enforcing the public-input binding (`pi[0..64]` always; `pi[64..192]` against the pinned issuer/asset/root when `set_canonical_inputs` has been called).
+- `set_canonical_inputs` — admin-gated pinning of the canonical issuer key + allowed root; once set, an attest carrying public inputs for a forged issuer, another asset, or a different root reverts `CanonicalInputMismatch` (hardened build; the deployed testnet instance predates this entrypoint).
 - `revoke` — immediate sanctions revocation; callable by quorum or officer.
 - `revoke_fraud` — terminal fraud state; callable only by the challenge contract.
 - `freeze` / `unfreeze` — challenge-layer dispute management; suspends expiry.
@@ -119,7 +135,7 @@ Entrypoints:
 - `resolve(asset_id, holder)` — anyone may call; reads the credential's own stored proof and public inputs from the registry and calls `groth16_verifier.verify`. Idempotent (reverts on second call). Effects (state flips) precede interactions (CSPR moves).
 - `settle_expired(asset_id, holder)` — exposes the registry keeper function.
 
-Fraud resolution: proof **invalid** → `revoke_fraud`; full signer bond pool slashed; challenger receives gas allowance + reward + bond refund; remainder burned to treasury.
+Fraud resolution: proof **invalid** → `revoke_fraud`; full signer bond pool slashed; challenger receives gas allowance + reward + bond refund; remainder **transferred to the treasury account** (a spendable account — a treasury transfer, not a burn).
 
 Frivolous challenge resolution: proof **valid** → credential unfrozen (Active, or Expired if expiry elapsed during freeze); challenger's bond split among signers as compensation.
 
@@ -166,17 +182,19 @@ sequenceDiagram
     participant Verifier as groth16-verifier (on-chain)
 
     Note over Browser,Server: ONBOARD
-    Browser->>Server: POST /api/onboard (account hex, optional bind sig)
-    Server->>Server: OFAC SDN screen (screen.ts)
-    Server->>Browser: circuit witness (issuer EdDSA sig, claims)
-    Browser->>Browser: snarkjs.groth16.fullProve() — proof stays in browser
+    Browser->>Browser: wallet signs derivation msg -> identitySecret/salt (stay local)
+    Browser->>Server: POST /api/bind (account) -> single-use nonce
+    Browser->>Server: POST /api/claims (bind sig, idCommit = Poseidon(secret))
+    Server->>Server: verify bind (BLOCKING); demo issuer signs claims for idCommit
+    Server->>Browser: signed claim set (no secrets)
+    Browser->>Browser: snarkjs.groth16.fullProve() — witness + proof stay in browser
 
     Note over Browser,Server: ATTEST
-    Browser->>Server: POST /api/attest (publicSignals, proofBytes)
-    Server->>Server: snarkjs verify off-chain
-    Server->>Server: 2-of-3 quorum ed25519 co-sign (quorum-attest.ts)
-    Server->>Registry: attest(asset_id, holder, commitment, nullifier,\n  expiry, proof, public_inputs, signers, sigs)
-    Registry->>Registry: verify quorum sigs + public-input binding;\n  store credential (status=Attested)
+    Browser->>Server: POST /api/onboard (bind sig, proof, publicSignals)
+    Server->>Server: verify bind (consume nonce) + snarkjs verify +\n  bind all 6 public inputs + sanctions screen (fail-closed)
+    Server->>Server: co-sign with 2 env keys (single trust domain)
+    Server->>Registry: attest(asset_id, holder, commitment, nullifier,\n  expiry, HOLDER'S proof bytes, public_inputs, signers, sigs)
+    Registry->>Registry: verify sigs vs registered 3-key set + public-input binding;\n  store credential (status=Attested)
 
     Note over CEP78,Registry: GATED TRANSFER
     CEP78->>Filter: can_transfer(source_key, target_key)
@@ -195,7 +213,7 @@ sequenceDiagram
     alt proof INVALID (fraud)
         Verifier-->>Challenge: false
         Challenge->>Registry: revoke_fraud(asset_id, holder)
-        Challenge->>Challenge: slash signer bonds; pay challenger; burn remainder
+        Challenge->>Challenge: slash signer bonds; pay challenger;\n  transfer remainder to treasury account
     else proof VALID (frivolous)
         Verifier-->>Challenge: true
         Challenge->>Registry: unfreeze(asset_id, holder)
@@ -220,11 +238,16 @@ graph LR
 
 ---
 
-## 4. Server-side quorum auto-attest
+## 4. Server-side attestation (single trust domain — stated plainly)
 
 **Source:** `frontend/lib/server/quorum-attest.ts`
 
-The server holds two of the three quorum keys as environment variables (base64-encoded PEM, never imported client-side). The `submitAttest` function:
+The server holds two of the three registered quorum keys as environment variables
+(base64-encoded PEM, never imported client-side) and produces **both** signatures
+itself. This is a 2-signature demo attestation from one trust domain; the
+on-chain registry independently verifies both signatures against its registered
+3-key set with threshold 2 and accepts only bonded signers. The `submitAttest`
+function:
 
 1. Derives `commitment` and `nullifier` from the circuit's public signals using `fieldToLe32` (bigint field element → 32-byte little-endian buffer, matching the on-chain `ByteArray` encoding).
 2. Constructs the canonical message: `strBytes(asset_id) || keyAccountBytes(holderHex) || commitment[32] || nullifier[32] || u64le(expiry)`. This is byte-exact with the Rust `canonical_message` function in `registry.rs`.
@@ -238,9 +261,11 @@ Supporting server-only modules:
 
 | File | Purpose |
 |---|---|
-| `frontend/lib/server/screen.ts` | Fetches the OFAC SDN digital-currency denylist and screens a wallet address. In-process cache (1-hour TTL). A sanctioned wallet is never attested. |
-| `frontend/lib/server/issuer-input.ts` | Builds the per-visitor circuit witness. Derives `identitySecret` and `salt` deterministically from the account hex via BLAKE2b, signs the claims hash with the BabyJubJub issuer key, and computes `commitment` and `nullifier` in Poseidon. The visitor generates the Groth16 proof from this witness in-browser. |
-| `frontend/lib/server/verify-bind.ts` | Best-effort verification of the CSPR.click `signMessage` holder-binding signature. Non-blocking; surfaced for human confirmation. |
+| `frontend/lib/server/screen.ts` | Sanctions screening with honest scope: the live OFAC SDN ETH-address list (content-hash + timestamp versioned) is screened against an optional linked ETH address — an identifier that can actually match; Casper-account matching uses a labeled demo denylist. Stale (>24h) or unavailable data refuses attestation (fail-closed). |
+| `frontend/lib/server/issuer-input.ts` | The demo issuer. Signs the claim set for a **client-supplied** identity commitment `Poseidon(identitySecret)`; never sees or derives the identity secret or salt, so it cannot rebuild the witness. Fails closed without `ISSUER_EDDSA_KEY` (no default key exists in the repo). |
+| `frontend/lib/identity.ts` (client) | Derives `identitySecret`/`salt` from a wallet signature in the browser; computes the identity commitment with circomlibjs. The derivation signature is never transmitted. |
+| `frontend/lib/server/bind.ts` | **Mandatory, blocking** wallet-control verification: server-issued single-use nonce, domain-separated message (chain/registry/asset/account/nonce/expiry), ed25519 + secp256k1 signature check, replay rejection. No claims and no attest without it. |
+| `frontend/lib/server/proof-serde.ts` | Converts the verified snarkjs proof to the exact arkworks-uncompressed bytes stored on-chain (proven byte-for-byte against the Rust `gen_fixtures` output). **The stored proof is always the holder's own** — no placeholder path exists. |
 | `frontend/lib/server/guards.ts` | Per-key sliding-window rate limit, per-wallet one-shot cap, global soft cap. In-memory (single Railway replica). |
 
 ---
@@ -262,9 +287,15 @@ Supporting server-only modules:
 - The issuer EdDSA private key.
 - Any ciphertext escrow (disclosure is commitment-only; see §8).
 
-### Quorum
+### Attestation signers (demo: single trust domain)
 
-Threshold 2-of-3 ed25519 quorum. Two of the three keys sign every credential. The third key is a hot spare. In the testnet demo, two keys are held server-side; production deployments should distribute key custody.
+The registry registers three ed25519 keys with threshold 2. **In this demo both
+signing keys live in one server process's env** — there is no independent
+verifier quorum, and the docs/UI say so. What the chain enforces is real: ≥2
+valid signatures from the registered set, bonded signers only, unknown/duplicate
+signers rejected. The `agent/` directory implements the independent N-verifier
+shape used by the CLI/e2e path; distributing key custody to such services is the
+production model.
 
 **Only bonded keys may sign.** A quorum key must post `attestor_bond` CSPR in the challenge contract before it can co-sign a credential. This creates joint economic liability for every attestation.
 
@@ -272,7 +303,7 @@ Threshold 2-of-3 ed25519 quorum. Two of the three keys sign every credential. Th
 
 ### Officer
 
-The `OFFICER_ROLE` is a Casper account configured as a weighted M-of-N multisig (associated keys). Casper enforces the M-of-N threshold at the account layer; this contract trusts the account hash. Every officer action emits an `OfficerAction` event with a `reason_hash` committing to the off-chain justification.
+The `OFFICER_ROLE` is a Casper account hash; the contract trusts that account. The production model puts a weighted M-of-N multisig (Casper associated keys) behind it — `scripts/officer_multisig/setup_and_demo.sh` demonstrates the native mechanism — but **the deployed demo officer is a single key**, stated plainly here and in the UI. Every officer action emits an `OfficerAction` event with a `reason_hash` committing to the off-chain justification.
 
 Hard boundary: the officer **cannot** unfreeze a credential frozen by an in-flight challenge (`frozen_by_challenge == true`). A disputed credential can only be unfrozen by the challenge contract after `resolve` runs.
 
@@ -284,7 +315,13 @@ Hard boundary: the officer **cannot** produce or alter `RevokedFraud`. That stat
 
 ### Re-screening
 
-The server screens each wallet against the live OFAC SDN denylist at onboarding. Subsequent re-screening happens when the agent re-attests (refresh); the screen runs again as part of the attest route. There is no autonomous background daemon polling the full holder population; re-screening is a runtime operation triggered by the onboard/refresh flow.
+Screening runs at onboarding and refresh only — there is no autonomous background
+daemon polling the holder population. Scope, honestly: the live OFAC SDN
+digital-currency list contains **ETH addresses**, so it is screened against an
+optional linked ETH address; Casper-account matching uses a labeled demo
+denylist (illustrative — no official Casper-account SDN mapping exists). Every
+screening result records source URL, fetch timestamp, and list content hash;
+stale or unavailable data refuses attestation.
 
 ---
 
@@ -303,9 +340,9 @@ All values are constructor arguments; the testnet demo uses 250 CSPR bonds for c
 
 - Slashed pool: 2 × 250 = 500 CSPR.
 - Challenger receives: min(gas_allowance + reward, slashed) + bond = min(390, 500) + 250 = 640 CSPR.
-- Burned to treasury: 500 − 390 = **110 CSPR**.
+- Treasury transfer: 500 − 390 = **110 CSPR** (to the configured treasury account — spendable, not destroyed).
 
-**Griefing invariant:** `A = G + R + B`. A successful challenger is made whole on gas (G), earns the reward (R), and is refunded their bond (B). The rest is burned.
+**Griefing invariant:** `A = G + R + B`. A successful challenger is made whole on gas (G), earns the reward (R), and is refunded their bond (B). The rest goes to the treasury.
 
 **Self-slash deterrence:** A signer who self-challenges loses the full signer bond minus the reward and gas allowance, making sockpuppet challenges strictly net-negative. Test: `challenge::tests::self_challenge_is_net_negative`.
 
@@ -374,15 +411,18 @@ The disclosure suite (`disclosure/src/test_disclosure.js`) reuses the same Posei
 
 | Suite | Count | Notes |
 |---|---|---|
-| `credential-registry` | 49/49 | Both Odra VM and casper-test backends |
-| `challenge` | 18/18 | Covers bonding, withdraw guard, fraud/frivolous resolve, idempotency, expiry-under-freeze, self-slash deterrence |
-| `integration` lifecycle | writ_token + filter + registry + challenge chained | Full lifecycle: attest → active → gated transfer → revoke → re-attest → fraud challenge → slash → burn |
+| `credential-registry` | 57/57 | RBAC, sig validation, nullifier replay, binding (incl. canonical issuer/asset/root pinning), expiry, state machine, transfer matrix |
+| `challenge` | 18/18 | Bonding, withdraw guard, fraud/frivolous resolve, idempotency, expiry-under-freeze, self-slash deterrence |
+| `groth16-verifier` | 8/8 | Valid/tampered proof + inputs; checked-deserialization rejections (malformed, off-curve, out-of-subgroup, non-canonical) |
+| CEP-78 ⇄ filter ⇄ registry E2E | fork `writ` tests | Real-EE gating incl. revoked sender, expired credential, operator no-bypass, missing-registry fail-closed |
+| `integration` lifecycle | 1 chained scenario | attest → active → gated transfer → revoke → re-attest → fraud challenge → slash → treasury transfer |
+| `frontend` | 28/28 | bind, fail-closed issuer, screening, proof serde vs arkworks bytes, full in-node prove + input binding |
 | `disclosure` | 14/14 | Poseidon recompute vs live on-chain commitment, tamper detection, compelled disclosure round-trip |
 
 Real gas measurements from the Casper EE:
 
 - On-chain Groth16 `verify`: **~79.29 CSPR**
-- Fraud slash burn to treasury: **110 CSPR** (testnet demo bond sizes)
+- Fraud-slash treasury transfer: **110 CSPR** (testnet demo bond sizes)
 
 Live testnet transaction proofs:
 
@@ -391,4 +431,4 @@ Live testnet transaction proofs:
 | Regulated holder attest (real Poseidon commitment) | [`f3fd7cbb…`](https://testnet.cspr.live/deploy/f3fd7cbba19ef1195d70df72bc3ea073da4b6f78899c261ffadbc305d7a86645) |
 | Transfer from sanctioned sender reverts (filter error 159) | [`3448182c…`](https://testnet.cspr.live/deploy/3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d) |
 | Transfer to ineligible recipient reverts (recipient-aware deny, error 159) | [`ce0f1a3a…`](https://testnet.cspr.live/deploy/ce0f1a3a03131a4de663d04d60243aa4c261a9f0eab24acf55a4f5af9a26a2ad) |
-| Fraud slash (resolve → Groth16 FALSE → slash 500 + burn 110 CSPR) | [`0ae7aecd…`](https://testnet.cspr.live/deploy/0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83) |
+| Fraud slash (resolve → Groth16 FALSE → slash 500, 110 CSPR treasury transfer) | [`0ae7aecd…`](https://testnet.cspr.live/deploy/0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83) |

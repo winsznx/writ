@@ -1,15 +1,23 @@
 // Selective disclosure — every path, asserted. Uses the REAL onboarded claims
-// (circuits/build/input_eligible.json) and the REAL on-chain commitment
-// (circuits/build/elig2_public.json[1] == the verifier fixture commitment).
+// and the REAL on-chain commitment (public.json[1] == the verifier fixture
+// commitment). The demo holder's witness is committed as a public fixture in
+// disclosure/fixtures/ (its preimage is intentionally public — see /docs/whats-real)
+// so this suite runs from a clean clone; a regenerated circuits/build takes
+// precedence when present.
 const fs = require("fs");
 const path = require("path");
 const nacl = require("tweetnacl");
 const D = require("./disclosure");
 
 const CIRC = path.join(__dirname, "../../circuits/build");
-const input = JSON.parse(fs.readFileSync(path.join(CIRC, "input_eligible.json")));
+const FIXTURES = path.join(__dirname, "../fixtures");
+const load = (name) => {
+  const built = path.join(CIRC, name);
+  return JSON.parse(fs.readFileSync(fs.existsSync(built) ? built : path.join(FIXTURES, name)));
+};
+const input = load("input_eligible.json");
 // public inputs order: [nullifier, commitment, issuerAx, issuerAy, assetId, allowedRoot]
-const ONCHAIN_COMMITMENT = JSON.parse(fs.readFileSync(path.join(CIRC, "elig2_public.json")))[1];
+const ONCHAIN_COMMITMENT = load("elig2_public.json")[1];
 const ASSET = "writ-bond-001";
 const HOLDER = "account-hash-85d28e05f316f6468b1e96e319df620a0c2270bde6f876144ec441145002697b";
 

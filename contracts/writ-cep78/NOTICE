@@ -1,0 +1,22 @@
+Writ CEP-78 fork — attribution notice
+=====================================
+
+The contents of the fork/ directory are derived from the Casper CEP-78 Enhanced
+NFT reference implementation:
+
+  Upstream:  https://github.com/casper-ecosystem/cep-78-enhanced-nft
+  Version:   v2.0.0 (commit 9a624aa)
+  License:   Apache License 2.0 (see fork/LICENSE for the full text)
+
+Writ's modifications to the upstream code:
+  - the recipient-aware transfer-filter patch (the real recipient is passed to
+    the filter's can_transfer as ARG_TARGET_KEY) — see WRIT_RECIPIENT_AWARE.patch
+  - a mint gate calling the filter's mint_allowed entrypoint
+  - the writ_registry_filter and writ_filter test-contracts
+  - the writ_smoke / writ_registry_smoke test modules
+
+These modifications are Copyright (c) 2026 Writ and are provided under the same
+Apache License 2.0 as the upstream work.
+
+All other Writ first-party code in this repository (outside contracts/writ-cep78/fork/)
+is licensed under the MIT License (see the repository root LICENSE).

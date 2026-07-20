@@ -39,3 +39,4 @@ DEMO_SCRIPT.md
 
 # --- root logo source (kept out; optimized versions live in frontend/public/) ---
 /writ.png
+__pycache__/

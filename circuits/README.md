@@ -1,10 +1,13 @@
 # Writ Eligibility Circuit (Circom + Groth16-BN254)
 
-The off-chain cryptographic core. An investor proves — in zero-knowledge — that a
-real external KYC issuer attested them eligible for an asset, without revealing
-any claim. The proof carries a per-person-per-asset **nullifier** and a hiding
-**commitment**. The agent (next component) verifies these proofs with **arkworks**
-and attests the nullifier/commitment to the on-chain Credential Registry.
+The off-chain cryptographic core. An investor proves — in zero-knowledge — that
+the configured issuer attested them eligible for an asset, without revealing any
+claim. In the shipped demo that issuer is a **demo issuer key** (env
+`ISSUER_EDDSA_KEY`); the production model swaps in a real external KYC issuer
+holding the same signing role. The proof carries a per-person-per-asset
+**nullifier** and a hiding **commitment**. The verification path uses
+**arkworks** and attests the nullifier/commitment to the on-chain Credential
+Registry.
 
 ## Files
 - `src/square.circom` — STEP 0 probe (x²==y) for the snarkjs→arkworks seam.
@@ -34,9 +37,11 @@ issuer signature `sigR8x, sigR8y, sigS`, and the jurisdiction Merkle path
 
 ## Constraints proven
 1. **Issuer signature** — `EdDSAPoseidonVerifier` over `claimsHash =
-   Poseidon(accredited, jurisdictionCode, sanctioned, identitySecret)`. Binds the
-   claims to a real external issuer; the holder cannot alter a claim without
-   breaking the signature.
+   Poseidon(accredited, jurisdictionCode, sanctioned, Poseidon(identitySecret))`.
+   The issuer signs over the **identity commitment** `Poseidon(identitySecret)`,
+   never the raw secret — which is what lets the browser keep `identitySecret`
+   local and send the issuer only the commitment. The holder cannot alter a claim
+   without breaking the signature.
 2. **Predicate** — `accredited == 1 ∧ sanctioned == 0 ∧ jurisdictionCode ∈ allowed`
    (Merkle inclusion against `allowedRoot`). An ineligible witness (e.g.
    `sanctioned = 1`) cannot satisfy the circuit, so **no witness and no proof**.
@@ -46,8 +51,18 @@ issuer signature `sigR8x, sigR8y, sigS`, and the jurisdiction Merkle path
 4. **Commitment** = `Poseidon(accredited, jurisdictionCode, sanctioned, identitySecret, salt)`
    — hiding, for later selective disclosure.
 
-Account binding is **not** in-circuit — done at submission (the holder signs the
-attest request with their Casper key; the agent checks that + the proof).
+Account binding is **not** in-circuit — done at submission: the holder signs a
+server-issued, nonce-bound message with their Casper key, and the server verifies
+it (blocking) before issuing claims or attesting.
+
+**No in-circuit expiry/freshness** (known limitation, disclosed): the signed
+`claimsHash` carries no timestamp, so an issuer-signed claim set does not expire
+at the ZK layer. Freshness is enforced on-chain at the credential layer — the
+registry rejects an attest with a past expiry and `is_active` flips false when
+the credential's expiry elapses. Adding an issuedAt/expiry field to the signed
+claims (and binding it as a public input) is the planned circuit v3 change; it
+requires a new verifying key and therefore a redeploy of the locked on-chain
+verifier.
 
 **Constraint count:** 12,254 total (9,230 non-linear + 3,024 linear), dominated by
 the EdDSA verification. 4 public inputs, 2 public outputs, 14 witness inputs.
@@ -74,5 +89,11 @@ cargo run --release --manifest-path ark-verifier/Cargo.toml -- \
   build/elig_vkey.json build/elig_proof.json build/elig_public.json                        # agent (arkworks) path
 ```
 
-> The trusted setup here is a single-contribution **dev** ceremony. Production
-> requires a real multi-party Powers-of-Tau + phase-2 ceremony.
+> **Trusted setup: single-contribution DEV ceremony — demo-grade only.** One
+> Powers-of-Tau contribution and one phase-2 contribution, both run by this
+> project. Whoever ran it held the toxic waste and could in principle forge
+> proofs; there is no ceremony transcript beyond the commands above. The shipped
+> artifacts in `frontend/public/circuit/` (`elig2_final.zkey`, `elig2_vkey.json`,
+> `eligibility.wasm`) and the verifying key embedded in the on-chain verifier all
+> derive from this ceremony. Production requires a real multi-party
+> Powers-of-Tau + phase-2 ceremony with published transcripts.

@@ -1,5 +1,15 @@
 # Writ — Product Requirements Document
 
+> **Status note (added in the final-round hardening pass).** This PRD is the product
+> spec — some mechanisms it describes are implemented at demo scope, not full spec
+> scope. The authoritative statement of what is live / unit-tested / demo-only is
+> README sections 1–3 and the app's /docs/whats-real page. Known spec-vs-demo gaps:
+> the "N-of-M independent verifiers" run as ONE process holding two keys (single
+> trust domain); the officer is a single demo key (not the M-of-N multisig);
+> re-screening runs at onboarding/refresh (no autonomous sweep daemon); the slash
+> remainder goes to a spendable treasury account (a transfer, not a burn); the
+> claim issuer is a demo issuer, not an external KYC provider.
+
 **Privacy-preserving, agent-operated compliance for tokenized real-world assets on Casper.**
 
 `v1.0` · Casper Agentic Buildathon 2026 · Casper Innovation Track · Submission deadline June 30, 2026
@@ -8,7 +18,7 @@
 
 ## 0. One line
 
-> Writ keeps a tokenized real-world asset compliant for life — every holder provably eligible, continuously re-screened, blocked on-chain the moment they're not — without the issuer ever touching a single piece of investor PII, and with a cryptographic audit trail the regulator can verify themselves.
+> Writ keeps a tokenized real-world asset compliant for life — every holder provably eligible, re-screened against live sanctions data at onboarding and refresh, blocked on-chain the moment their credential is revoked — without the issuer ever touching a single piece of investor PII, and with a cryptographic audit trail the regulator can verify themselves.
 
 **Verbs:** enforce · prove · never-custody.
 
@@ -41,7 +51,7 @@ An autonomous, privacy-preserving compliance + lifecycle-governance layer for to
 
 - **Entry eligibility** — investor proves eligibility in zero-knowledge; gets an on-chain credential. PII never propagates to the issuer, the agent, or the chain.
 - **Transfer gating** — every transfer is checked on-chain (sender not revoked, recipient eligible) and denied by default if not.
-- **Runtime re-screening** — an autonomous agent continuously re-screens the holder base against live sanctions/accreditation/jurisdiction data and revokes on change.
+- **Runtime re-screening** — holders are re-screened against live sanctions data at onboarding/refresh and revocable on-chain at any time (spec: an autonomous sweep agent; shipped: on-demand screening — see the status note above).
 - **Compliant distributions** — value flows (coupons, redemptions) gated by the same credential layer. *(v2)*
 - **Selective disclosure** — the issuer proves any specific compliance fact to a regulator on demand, without exposing the book.
 
@@ -125,7 +135,7 @@ Two complementary controls — CEP-78's filter fires on transfer but **not on mi
 
 Off-chain verification means the chain checks the agent's signature, not the proof — so the agent is an oracle. We minimize that trust with a dial:
 
-- **Threshold verification (baseline, shipped):** N-of-M independent verifiers each run the proof + screens and co-sign only on agreement. Forging a credential requires compromising a quorum. In production these are *named, accountable* parties (issuer compliance + independent KYC provider + auditor); the demo runs the mechanism with 2-of-3 instances.
+- **Threshold verification (baseline, shipped):** N-of-M independent verifiers each run the proof + screens and co-sign only on agreement. Forging a credential requires compromising a quorum. In production these are *named, accountable* parties (issuer compliance + independent KYC provider + auditor); the demo runs the on-chain mechanism (2-of-3 threshold verified by the registry) with both signing keys held by one server process — a single trust domain, disclosed in README §7.
 - **Optimistic on-chain fraud proofs (shipped):** the proof is published on-chain (safe — a ZK proof leaks nothing about the witness) and *not* verified in-contract on the happy path. Anyone can challenge by running the on-chain Groth16 verifier on that specific proof; a false attestation slashes the quorum's bond, a griefing challenge slashes the challenger's. The ~1000 CSPR pairing cost is paid **only in a dispute**, never per transfer.
 
 **Trust vs. privacy are orthogonal.** On-chain verify would be trustless; off-chain is oracle-trust — *ZK does not change this*. What ZK buys is **privacy**: the verifier learns only the boolean + nullifier, never the identity, on-chain or off. So the keystone cost us trustlessness but kept the honeypot flip intact: the agent is trusted to *verify*, never trusted *with the PII*.
@@ -199,9 +209,9 @@ States: `NONE · PENDING · ATTESTED (in challenge window, not yet transactable)
 
 ---
 
-## 12. Real integrations (zero mocks)
+## 12. Real integrations (live-data first; demo scope labeled)
 
-- **OFAC / OpenSanctions SDN** — the agent screens holder accounts directly against the real OFAC SDN / OpenSanctions sanctions list: free, authoritative, ecosystem-neutral. The genuine sanctions source (the actual SDN list), not a proxy or a custom allowlist.
+- **OFAC / OpenSanctions SDN** — the live data source is the real OFAC SDN digital-currency list (free, authoritative, ecosystem-neutral). Honest scope (see README §3): the list holds ETH addresses, so it is screened against a holder-linked ETH address; Casper-account matching uses a labeled demo denylist, since no official Casper-account SDN mapping exists.
 - **CSPR.cloud MCP** — chain reads, balances, contract state for the agent (full testnet parity).
 
 x402-paid OFAC was evaluated and dropped: real x402 OFAC services settle in USDC on Base/Solana, and no OFAC service sits behind the Casper x402 facilitator, so an autonomous WCSPR-settled OFAC screen on Casper isn't a reachable endpoint. Screening goes directly against the authoritative SDN list rather than contorting the product around x402. (If x402 is wanted for Casper-alignment, the clean path is metering Writ itself — issuers pay WCSPR per compliance check — not OFAC-via-x402.)
@@ -219,7 +229,7 @@ x402-paid OFAC was evaluated and dropped: real x402 OFAC services settle in USDC
 
 ## 14. Scope
 
-**v1 (Buildathon):** eligibility + sanctions gating · single reference asset (tokenized bond) · patched recipient-aware CEP-78 + mint gate · threshold (2-of-3) verification · optimistic on-chain fraud proofs · autonomous runtime re-screening (OFAC SDN) · selective disclosure · officer override · capability-demo on-chain verify.
+**v1 (Buildathon):** eligibility + sanctions gating · single reference asset (tokenized bond) · patched recipient-aware CEP-78 + mint gate · threshold (2-of-3) verification · optimistic on-chain fraud proofs · runtime re-screening at onboarding/refresh (live OFAC SDN data; scope disclosed in README §3) · selective disclosure · officer override · capability-demo on-chain verify.
 
 **v2 (post-Buildathon):** ownership-concentration caps + holding periods (need aggregate balance/lot tracking) · multi-asset shared identity layer (prove once, reuse across compatible assets) · forced-redemption-to-custody for sanctioned holdings · signature aggregation at institutional M · compliant distributions.
 
@@ -232,7 +242,7 @@ Build *order*, not scope cut — the v1 spine is what wins the demo; v2 layers h
 1. **Onboard, privately.** An investor proves accreditation + jurisdiction + clean-sanctions in ZK — uploads no document to the platform. Writ's quorum verifies off-chain, posts a credential. They can now hold the bond. *Show: no PII anywhere on-chain or in the platform.*
 2. **Gated transfer.** Transfer to an eligible holder → PROCEEDS on-chain (real tx). Transfer to a non-credentialed wallet → DENIED on-chain (real tx, revert 159). The asset is gated.
 3. **The kicker — autonomous sanctions block.** A current holder hits a sanctions list; the re-screen flags them; Writ's agent REVOKES the credential autonomously. Their next attempt to move the bond → DENIED on-chain, in real time. *Their name never appeared anywhere.*
-4. **The trust flex — "watch me cheat."** Push a false eligibility attestation. A challenger triggers the on-chain Groth16 verify on the published proof → invalid → the attestor's bond is slashed on-chain. *"You can't lie to Writ. Here's the proof, verified by anyone."*
+4. **The trust flex — "watch me cheat."** Push an attestation whose published proof is invalid. A challenger triggers the on-chain Groth16 verify on that stored proof → invalid → the attestor's bond is slashed on-chain. Scope, precisely: the challenge catches invalid/mismatched proofs; a valid proof for a forged issuer/asset/root is caught by canonical-input pinning (onboarding service today; `registry.set_canonical_inputs` on-chain in the hardened build), not by the challenge.
 5. **Regulator.** A regulator asks "prove holder #X was eligible at time T." Writ produces a selective-disclosure proof for that one fact — without revealing who #X is or exposing the book.
 
 Tagline beat (LICTOR discipline): *"The sanctioned wallet tried to receive the bond. Writ blocked it on-chain. Nobody ever saw their name."*
@@ -251,7 +261,7 @@ Tagline beat (LICTOR discipline): *"The sanctioned wallet tried to receive the b
 8. **Frontend (Anu)** — issuer dashboard (holder roster, rule sets, revocations), investor proving flow, regulator disclosure view.
 9. **Capability demo + live tx capture** — real testnet deploys, demo video.
 
-Each component built and verified before the next. Production-grade, real on-chain, no mocks.
+Each component built and verified before the next, against real on-chain state. (Demo-scope pieces — demo issuer, single-trust-domain attestation, labeled demo sanctions denylist, scripted landing terminal — are explicitly labeled; see /docs/whats-real.)
 
 ---
 
@@ -314,7 +324,7 @@ Explorer: `https://testnet.cspr.live/deploy/<hash>`
 
 - Sanctioned sender's transfer reverts on-chain (kicker):
   `3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d`
-- Fraudulent attestation slashed, 110 CSPR burned (fraud slash):
+- Fraudulent attestation slashed, 110 CSPR transferred to the treasury account (fraud slash):
   `0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83`
 - Post-fraud transfer reverts (RevokedFraud holder):
   `8922e979320ba28f38cab32b107893a5f868ec07281c9790c8b57d2b2c5786f9`

@@ -8,7 +8,7 @@ This document explains why the Writ build can be trusted. It covers the attack s
 
 ## 1. The Threat Model in One Sentence
 
-A quorum of agents attests credentials optimistically. Any watcher can post a bond and challenge an attestation; the dispute resolves by running the credential's own published proof through the on-chain Groth16 verifier. An attacker who lies in an attestation loses their entire bond plus their co-signer's bond and lands in the irreversible `RevokedFraud` state. An attacker who challenges a valid credential loses their bond to the signers they accused.
+Bonded signer keys attest credentials optimistically — in the shipped demo both signatures come from a single trust domain (one server process holding two of the registry's three registered keys); an independent production quorum is roadmap, and the on-chain threshold/bonding mechanism that would hold it accountable exists today. Any watcher can post a bond and challenge an attestation; the dispute resolves by running the credential's own **stored** proof through the on-chain Groth16 verifier. An attestation whose stored proof is invalid costs the signers their entire bond pool and lands the credential in the irreversible `RevokedFraud` state. A challenger who disputes a valid credential loses their bond to the signers they accused. Scope, precisely: the challenge adjudicates proof validity for the stored public inputs — canonical issuer/asset/root pinning is a separate gate (see §2.5).
 
 ---
 
@@ -59,7 +59,7 @@ Source: `registry.rs` lines 738–749.
 
 ### 2.5 Public-Input Binding
 
-At `attest` time the registry enforces that `public_inputs[0:32] == nullifier` and `public_inputs[32:64] == commitment`. The six public inputs are part of the Groth16 circuit (they bind the proof to a specific nullifier/commitment/issuer/asset/root tuple). If an attester publishes a valid proof but swaps in different public inputs, the binding check reverts with `PublicInputBindingMismatch`.
+At `attest` time the registry enforces that `public_inputs[0:32] == nullifier` and `public_inputs[32:64] == commitment` — reverting `PublicInputBindingMismatch` otherwise. In the hardened build the admin can additionally pin the canonical issuer key and allowed-jurisdiction root on-chain (`set_canonical_inputs`); once pinned, `attest` also enforces `public_inputs[64:192]` against the pinned issuer, the call's own asset encoding, and the pinned root, reverting `CanonicalInputMismatch` (tests: `canonical_wrong_issuer/asset/root_rejected_on_chain`). Without that pinning — including on the deployed testnet instance, which predates the entrypoint — a malicious QUORUM_ROLE caller could store a valid proof naming a forged issuer or attacker-chosen root, and **the challenge would not catch it**: resolve verifies the stored proof against the stored inputs, nothing more. In the shipped demo that gap is closed by the onboarding service, which pins issuer/asset/root before any attest.
 
 At `resolve` time the challenge contract reads the credential's **own stored proof and public inputs** — never caller-supplied data. An attacker cannot supply a different valid proof at resolve time; the verifier runs against exactly the bytes that were stored at attest time.
 
@@ -119,10 +119,10 @@ Setup: two signers each bonded at 250 CSPR (demo). A watcher challenges, paying 
 slashed pool   = 250 + 250                    = 500 CSPR   (both signer bonds)
 reward_cap     = GAS_ALLOWANCE + REWARD        = 90 + 300   = 390 CSPR
 to challenger  = reward_cap + challenger_bond  = 390 + 250  = 640 CSPR
-burned         = slashed - reward_cap          = 500 - 390  = 110 CSPR  -> treasury
+to treasury    = slashed - reward_cap          = 500 - 390  = 110 CSPR  (spendable treasury account — a transfer, not a burn)
 ```
 
-The challenger is made whole on gas (90 CSPR) plus earns a 300 CSPR reward and gets their 250 CSPR bond back. The remainder (110 CSPR) burns to the treasury.
+The challenger is made whole on gas (90 CSPR) plus earns a 300 CSPR reward and gets their 250 CSPR bond back. The remainder (110 CSPR) is transferred to the treasury account. (The code's local variable is historically named `burned`; the destination is a spendable account, so the docs say treasury transfer.)
 
 Source: `challenge.rs` lines 304–309 (`settle_fraud`), test `resolve_fraud_full_split` (line 698):
 
@@ -178,7 +178,7 @@ The residual `A − R` (attestor bond minus the portion a sockpuppet can recover
 
 ### 3.5 Frivolous Challenge: Challenger Pays Signers
 
-If resolve finds the proof valid, the credential is unfrozen and the challenger's bond is split equally among the signers they accused. Any integer rounding remainder burns to the treasury. The challenger receives nothing back.
+If resolve finds the proof valid, the credential is unfrozen and the challenger's bond is split equally among the signers they accused. Any integer rounding remainder is transferred to the treasury account. The challenger receives nothing back.
 
 Source: `challenge.rs` lines 313–341 (`settle_frivolous`), test `resolve_frivolous_compensates_signers` (line 736).
 
@@ -196,9 +196,9 @@ The 79.29 CSPR figure is the measured on-chain cost from live testnet runs. See 
 
 ## 5. Test Evidence
 
-### 5.1 Credential Registry — 49 tests (OdraVM)
+### 5.1 Credential Registry — 57 tests (OdraVM)
 
-All 49 `#[test]` functions in `contracts/credential-registry/src/registry.rs` run against the OdraVM in-process backend. The crate also ships a `livenet_read` binary (feature-gated `livenet`) for live state reads against the deployed testnet instance.
+All 57 `#[test]` functions in `contracts/credential-registry/src/registry.rs` run against the OdraVM in-process backend (52 pre-hardening + 5 canonical-input-binding tests added in the final-round pass). The crate also ships a `livenet_read` binary (feature-gated `livenet`) for live state reads against the deployed testnet instance.
 
 Key correctness groups:
 
@@ -228,7 +228,7 @@ All 18 `#[test]` functions in `contracts/challenge/src/challenge.rs`.
 | `challenge_rejects_non_active` | Cannot challenge a non-active credential |
 | `challenge_double_rejected_first_wins` | First-challenge-wins |
 | `challenge_wrong_bond_rejected` | Exact challenger bond required |
-| `resolve_fraud_full_split` | Fraud path: slash, burn 110, challenger net positive |
+| `resolve_fraud_full_split` | Fraud path: slash, 110 to treasury, challenger net positive |
 | `resolve_frivolous_compensates_signers` | Frivolous path: signers split challenger bond |
 | `resolve_idempotent_no_double_slash` | No double-slash on re-call |
 | `challenge_freeze_blocks_refresh` | Freeze blocks re-attest |
@@ -244,15 +244,15 @@ All 18 `#[test]` functions in `contracts/challenge/src/challenge.rs`.
 1. Eligible recipient onboarded (dummy proof, unchallenged)
 2. Holder onboarded with real Groth16 proof fixtures
 3. Gated transfer: eligible holder PROCEEDS; ineligible recipient DENIED
-4. Autonomous revoke (OFAC hit) -> transfer DENIED
-5. Same-slot refresh (OFAC re-onboard) -> Active -> transfer PROCEEDS
+4. Sanctions revoke (quorum/officer path) -> transfer DENIED
+5. Same-slot refresh (re-onboard after sanctions revoke) -> Active -> transfer PROCEEDS
 6. Fraud path: tampered-proof credential challenged, resolved FALSE -> `RevokedFraud` + slash -> transfer DENIED
 7. Frivolous path: valid credential challenged, resolved TRUE -> unfreeze -> Active -> transfer PROCEEDS
 8. Officer override cycle: revoke -> reinstate -> freeze -> unfreeze, each verified via transfer allow/deny
 9. Boundary assertions: `officer_reinstate` on `RevokedFraud` reverts; `officer_unfreeze` on challenge-frozen reverts
 10. Attribution trail assertions: `CredentialAttested` (initial + refresh), `CredentialRevoked` (sanctions vs fraud distinction), `Challenged`, `Resolved` (fraud + frivolous), `OfficerAction`
 
-The setup in this test mirrors the exact sequence run by `scripts/deploy/wire_writ.sh` on testnet: deploy verifier + registry + challenge + filter + token, `grant_challenge`, `grant_officer`, bond the 2-of-3 attestors.
+The setup in this test mirrors the exact sequence run by `scripts/deploy/wire_writ.sh` on testnet: deploy verifier + registry + challenge + filter + token, `grant_challenge`, `grant_officer`, bond the attestors (2 signing keys of the registered 3-key set).
 
 ---
 
@@ -265,7 +265,7 @@ All six contracts are deployed and verified on Casper testnet. Package hashes (s
 | groth16-verifier | [2bc9a855…](https://testnet.cspr.live/contract-package/2bc9a8556c75ee912bab4f7d2cf2622863d1f1e29eb5cf68685a52d6a718ff61) |
 | credential-registry | [2e19e2bf…](https://testnet.cspr.live/contract-package/2e19e2bfc5383fd51103ee54fb430b53ec7a1a63c83a7841e08f00b188653fca) |
 | challenge | [c1080d67…](https://testnet.cspr.live/contract-package/c1080d67eed0c4945eadd84bc016d3b183a650086e39de60fb9c96cfe59dda34) |
-| transfer-filter | [d84a9321…](https://testnet.cspr.live/contract-package/d84a932187624c1c982ed5c6dcbd1961fe370f732ce02fcbc0fe3e5e28389726) |
+| writ_registry_filter (CEP-78 hook) | [d84a9321…](https://testnet.cspr.live/contract-package/d84a932187624c1c982ed5c6dcbd1961fe370f732ce02fcbc0fe3e5e28389726) |
 | writ-cep78 | [ad407c6b…](https://testnet.cspr.live/contract-package/ad407c6bccbfc13e9fef28a03b75b175b0d186d3205952be684934c8dcb59bbe) |
 | writ-token | [512068de…](https://testnet.cspr.live/contract-package/512068de722212ce497cb081049649339f0a8994394328164f3dde52c4ab8a3e) |
 
@@ -276,7 +276,7 @@ Key transaction evidence:
 | Sanctioned sender reverts (filter user-error 159) | [3448182c…](https://testnet.cspr.live/deploy/3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d) |
 | Ineligible recipient reverts (user-error 159) | [ce0f1a3a…](https://testnet.cspr.live/deploy/ce0f1a3a03131a4de663d04d60243aa4c261a9f0eab24acf55a4f5af9a26a2ad) |
 | Regulated holder attest (Poseidon commitment on-chain) | [f3fd7cbb…](https://testnet.cspr.live/deploy/f3fd7cbba19ef1195d70df72bc3ea073da4b6f78899c261ffadbc305d7a86645) |
-| Fraud slash (resolve -> Groth16 FALSE -> slash 500 + burn 110, verify consumed 80.37 CSPR) | [0ae7aecd…](https://testnet.cspr.live/deploy/0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83) |
+| Fraud slash (resolve -> Groth16 FALSE -> slash 500, 110 CSPR treasury transfer, verify consumed 80.37 CSPR) | [0ae7aecd…](https://testnet.cspr.live/deploy/0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83) |
 | Post-fraud transfer reverts (RevokedFraud holder, error 159) | [8922e979…](https://testnet.cspr.live/deploy/8922e979320ba28f38cab32b107893a5f868ec07281c9790c8b57d2b2c5786f9) |
 
 ---
@@ -285,7 +285,12 @@ Key transaction evidence:
 
 The following claims are explicitly out of scope and are not made anywhere in the Writ documentation:
 
-- On-chain SNARK/Groth16 verification at onboarding time. Writ verifies the eligibility proof off-chain (snarkjs in the agent quorum) and commits the commitment and quorum signatures on-chain. On-chain Groth16 verification happens only in the fraud-challenge `resolve` path.
+- On-chain SNARK/Groth16 verification at onboarding time. Writ verifies the eligibility proof off-chain (snarkjs, server-side) and commits the credential and attestation signatures on-chain. On-chain Groth16 verification happens only in the fraud-challenge `resolve` path.
 - A ciphertext escrow or encrypted claims store. Disclosure is Poseidon-commitment-only. The holder retains the preimage and reveals it peer-to-peer; the regulator recomputes `Poseidon(claims)` and checks it equals the on-chain `ByteArray` commitment.
 - A 24/7 re-screening daemon over the entire holder base. The agent re-screens at onboarding and on-demand; there is no continuous watchtower service.
 - x402 live wire. x402 is designed into the payment path for live compliance data but is not yet wired.
+- An independent verifier quorum. The demo's two attestation signatures come from one server process (single trust domain); the on-chain 2-of-3 threshold check is real, signer independence is roadmap.
+- Challenge-time enforcement of issuer/asset/root. The challenge verifies the stored proof for the stored public inputs only; canonical pinning is enforced at onboarding (service) and, in the hardened registry code, on-chain via `set_canonical_inputs` — the deployed instance predates that entrypoint.
+- A token burn. The slash remainder is a transfer to a spendable treasury account.
+
+**The harshest fair criticism of the current system**: the eligibility being attested is demo-grade end-to-end — a demo issuer signs the claim set for any connected wallet, and the attestation trust domain is a single operator. What the cryptography and the chain enforce around that demo core (holder-held secrets, real stored proofs, recipient-aware transfer gating, economic slashing of invalid proofs, on-chain expiry) is real and tested; the issuer and signer-independence boundaries are the two production gaps, and both are stated on every surface.

@@ -7,12 +7,17 @@ import { readFileSync } from "node:fs";
 import { ed25519 } from "@noble/curves/ed25519";
 import { blake2b } from "@noble/hashes/blake2b";
 import * as A from "./lib.js";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const KEYS_DIR = process.env.WRIT_KEYS_DIR ?? "/tmp/writ-keys";
+
 
 const REG3 = "5f96786dea78a7c4cc90c1353cdc9c26b0a49ad468b7de5cf6b0bc23a033aaf9";
-const FUNDED = "/tmp/writ-keys/funded_secret_key.pem";
-const QKEYS = ["/tmp/writ-keys/q1/secret_key.pem", "/tmp/writ-keys/q2/secret_key.pem", "/tmp/writ-keys/q3/secret_key.pem"];
+const FUNDED = join(KEYS_DIR, "funded_secret_key.pem");
+const QKEYS = [join(KEYS_DIR, "q1/secret_key.pem"), join(KEYS_DIR, "q2/secret_key.pem"), join(KEYS_DIR, "q3/secret_key.pem")];
 const ASSET = "writ-bond-001";
-const CIRC = "/Users/mac/writ/circuits/build";
+const CIRC = join(REPO_ROOT, "circuits", "build");
 const READER = "credential_registry";
 const hex = (u8) => Buffer.from(u8).toString("hex");
 
@@ -23,7 +28,7 @@ function readCred(holderHash) {
   const out = execFileSync(
     "cargo",
     ["run", "--quiet", "--bin", "livenet_read", "--features", "livenet", "--", REG3, ASSET, holderHash],
-    { cwd: "/Users/mac/writ/contracts/credential-registry", encoding: "utf8", env: { ...process.env, PATH: process.env.PATH } }
+    { cwd: join(REPO_ROOT, "contracts", "credential-registry"), encoding: "utf8", env: { ...process.env, PATH: process.env.PATH } }
   );
   return out.trim();
 }
@@ -63,7 +68,7 @@ async function main() {
   console.log("\n=== STEP 5.3 AUTONOMOUS SANCTIONS REVOKE (scheduler delta re-screen -> revoke) ===");
   const baseline = await A.getOfacSet(); // pre-update list
   // sanctions update: the holder's monitored address is now an OFAC-listed address
-  const sanctionedAddr = readFileSync("/tmp/writ-keys/ofac_sanctioned_addr.txt", "utf8").trim();
+  const sanctionedAddr = readFileSync(join(KEYS_DIR, "ofac_sanctioned_addr.txt"), "utf8").trim();
   const tracked = [{ assetId: ASSET, holderAcctHashHex: holderHash, screenAddress: sanctionedAddr }];
   const sweep = await A.fullSweep(tracked);
   console.log("re-screen full-sweep hits:", sweep.length, "(OFAC-listed:", sanctionedAddr + ")");

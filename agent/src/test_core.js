@@ -4,8 +4,13 @@ import { blake2b } from "@noble/hashes/blake2b";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import * as A from "./lib.js";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const KEYS_DIR = process.env.WRIT_KEYS_DIR ?? "/tmp/writ-keys";
+
 const hex = (u8) => Buffer.from(u8).toString("hex");
-const C = "/Users/mac/writ/circuits/build";
+const C = join(REPO_ROOT, "circuits", "build");
 
 const sk = ed25519.utils.randomPrivateKey();
 const pk = ed25519.getPublicKey(sk);
@@ -23,13 +28,13 @@ console.log("account-bind verify (tampered nullifier rejected):",
 console.log("arkworks proof verify:", A.verifyProof(`${C}/elig2_vkey.json`, `${C}/elig2_proof.json`, `${C}/elig2_public.json`));
 
 const clean = await A.ofacScreen("0x1Fb1A5bf49b3d460830dd5ddC527eD7608B1770B");
-const sanctioned = await A.ofacScreen(readFileSync("/tmp/writ-keys/ofac_sanctioned_addr.txt", "utf8").trim());
+const sanctioned = await A.ofacScreen(readFileSync(join(KEYS_DIR, "ofac_sanctioned_addr.txt"), "utf8").trim());
 console.log("OFAC clean -> hit?", clean.hit, "| OFAC sanctioned -> hit?", sanctioned.hit, "| list size:", clean.listSize);
 
 const scClean = await A.screen("0x1Fb1A5bf49b3d460830dd5ddC527eD7608B1770B");
-const scBad = await A.screen(readFileSync("/tmp/writ-keys/ofac_sanctioned_addr.txt", "utf8").trim());
+const scBad = await A.screen(readFileSync(join(KEYS_DIR, "ofac_sanctioned_addr.txt"), "utf8").trim());
 console.log("screen() OFAC-only -> clean clean?", scClean.clean, "| sanctioned clean?", scBad.clean, "| no cordon field?", !("cordon" in scClean));
 
 const pub = JSON.parse(readFileSync(`${C}/elig2_public.json`, "utf8"));
-const qs = A.quorumSign("/tmp/writ-keys/q1/secret_key.pem", "writ-bond-001", jsHash, A.fieldToHex32(pub[1]), A.fieldToHex32(pub[0]), 4000000000);
+const qs = A.quorumSign(join(KEYS_DIR, "q1/secret_key.pem"), "writ-bond-001", jsHash, A.fieldToHex32(pub[1]), A.fieldToHex32(pub[0]), 4000000000);
 console.log("quorum sign -> pubkey:", qs.pubkey.slice(0, 18) + "...", "sig len:", qs.sig.length);

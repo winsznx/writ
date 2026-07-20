@@ -11,10 +11,15 @@ import { execFileSync } from "node:child_process";
 import { ed25519 } from "@noble/curves/ed25519";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { blake2b } from "@noble/hashes/blake2b";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const KEYS_DIR = process.env.WRIT_KEYS_DIR ?? "/tmp/writ-keys";
+
 
 const NODE = "https://node.testnet.casper.network/rpc";
-const ARK_VERIFY = "/Users/mac/writ/circuits/ark-verifier/target/release/ark-verify";
-const WRIT_SIGNER = "/tmp/writ-signer/target/release/writ-signer";
+const ARK_VERIFY = process.env.ARK_VERIFY ?? join(REPO_ROOT, "circuits", "ark-verifier", "target", "release", "ark-verify");
+const WRIT_SIGNER = process.env.WRIT_SIGNER ?? "/tmp/writ-signer/target/release/writ-signer";
 const CASPER = "casper-client";
 const OFAC_LIST_URL =
   "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_ETH.txt";
