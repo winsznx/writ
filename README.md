@@ -166,11 +166,11 @@ git clone https://github.com/winsznx/writ && cd writ
 # frontend (typecheck, lint, tests incl. full in-node proving, build)
 (cd frontend && npm install && npm run typecheck && npm run lint && npm test && npm run build)
 
-# disclosure
-(cd disclosure && npm install && npm test)
+# circuits deps FIRST — disclosure reuses circuits/commitment.js (circomlibjs)
+(cd circuits && npm install)            # full prove/verify: circuits/README.md "Reproduce"
 
-# circuits — compile, dev ceremony, prove, verify (snarkjs + arkworks paths)
-(cd circuits && npm install)            # then follow circuits/README.md "Reproduce"
+# disclosure (requires the circuits install above)
+(cd disclosure && npm install && npm test)
 
 # verify every live-tx claim in this README against the public node (no keys)
 ./scripts/verify_live.sh

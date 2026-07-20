@@ -104,6 +104,35 @@ Demo labels: SCRIPTED DEMO terminal, demo-issuer copy, single-trust-domain attes
 ## Phase 4 (docs) summary
 README fully rewritten around the 12 required sections; ARCHITECTURE/SECURITY/ADVERSARIAL_TESTING/PRD/FRONTEND/circuits-README/frontend-README edited to the same claims; archived manifests banner-marked; DEMO_SCRIPT (local) updated. Banned phrases eliminated repo-wide (checked by grep; the only remaining "burned" is a verbatim Rust variable name, annotated).
 
+## Clean-clone verification (closeout pass — exact outputs)
+
+Run in a pristine `git worktree` of the final commit (no `node_modules`, no
+`circuits/build`, no `internal/`, no env files), following README §10:
+
+```
+== 1 registry ==      test result: ok. 57 passed; 0 failed
+== 2 challenge ==     test result: ok. 18 passed; 0 failed
+== 3 verifier ==      test result: ok. 8 passed; 0 failed
+== 4 integration ==   test result: ok. 1 passed; 0 failed
+== 5 fork E2E ==      make setup-test && cargo test -p tests --lib writ
+                      test result: ok. 3 passed; 0 failed (143 filtered)
+== 6 frontend ==      npm install (537 pkgs) · tsc --noEmit OK · eslint exit 0
+                      Test Files 5 passed · Tests 28 passed · build Compiled OK
+== 7 circuits deps == npm install (94 pkgs) — required BEFORE disclosure
+                      (disclosure reuses circuits/commitment.js / circomlibjs)
+== 8 disclosure ==    14 passed, 0 failed
+== 9 verify_live ==   15/15 PASS against the public node RPC (no keys)
+```
+
+One reproducibility bug was found and fixed during this run: the disclosure
+suite crashed on a clean clone (`Cannot find module 'circomlibjs'`) when
+`circuits/npm install` had not run first — README §10 now orders circuits deps
+before disclosure and states the dependency. Two earlier clean-clone bugs fixed
+in the same pass: a `SyntaxError` in `deploy_v4.py` (double `ff"` prefix from
+the path-portability rewrite) and the disclosure fixtures themselves
+(`disclosure/fixtures/` now committed, with `circuits/build` taking precedence
+when present).
+
 ## Residual risks (also in README §12)
 1. In-circuit claim expiry absent (registry-level expiry real; circuit v3 roadmap).
 2. Deployed verifier predates checked-deserialization hardening.
