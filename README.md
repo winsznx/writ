@@ -52,6 +52,7 @@ The superseded V4 set remains on-chain and its transactions stay valid history; 
 | Recipient-aware deny — transfer to ineligible recipient reverts (159) | [`af706a71`](https://testnet.cspr.live/deploy/af706a71f42e838ea7029785a2b80803798ebb34f61b00d5804119615a1bdf35) |
 | **The kicker** — the *same route* proceeds [`65d81a5a`](https://testnet.cspr.live/deploy/65d81a5aaf7b5fa09bec9ac0867ee12c8ee1b2a84b5eb0a453161e0022ff1984), then reverts (159) after a sanctions revoke [`29ad4113`](https://testnet.cspr.live/deploy/29ad41132ec153d7f3059750010d502a69abcc3c8a3c95bd642dd47fb4c33f84) | [`1af2d7e6`](https://testnet.cspr.live/deploy/1af2d7e6821159b83819fed115ba072b7f10090c385ca18e1d5c71d288f4e7f3) |
 | Fraud slash — `resolve` → on-chain Groth16 **FALSE** → slash 500, challenger paid 640, **110 CSPR transferred to treasury** (95.1 CSPR gas for the pairing verify) | [`79cce54a`](https://testnet.cspr.live/deploy/79cce54a4fbd125ee81c120150c77b8eda66d5acc16331c94790e2c51ad9193f) |
+| **Live self-onboarding through the deployed app** — wallet bind → demo-issuer claims → in-browser proof → screening → attest accepted against the pinned canon | [`930a89f9`](https://testnet.cspr.live/deploy/930a89f99c25f5cf05cb41148ea83a9ad5ac695c2834334f7d0d875fc6fc5136) |
 | Post-fraud — transfer to the RevokedFraud holder reverts (159) | [`0013547b`](https://testnet.cspr.live/deploy/0013547bf9a13134d14485db39658c9a0576a9e12580129524443f415a00c056) |
 
 The fraud fixture is honest by construction: holder X was attested with **another
@@ -221,12 +222,11 @@ payable-call workaround).
 5. Bind nonces / rate limits are in-memory (single replica).
 6. The challenge "treasury" is a spendable account, not an unspendable sink — we
    call it a treasury transfer, never a burn. Verified live: +110 CSPR.
-7. **Live self-onboarding needs both demo signers bonded.** The V5 fraud demo
-   slashed both bonds (by design — that is what a successful challenge does).
-   One signer has been re-bonded; the second re-bond is pending testnet faucet
-   funds, and until then the registry correctly rejects attests with
-   `SignerNotBonded` (error 11). The app awaits on-chain execution and reports
-   that failure honestly — it never claims "attested" for a failed deploy.
+7. Live self-onboarding depends on the demo signers holding bonds. A successful
+   fraud challenge slashes them (that is the mechanism working), and onboarding
+   stays blocked — the registry rejects `SignerNotBonded` — until the operator
+   re-bonds. Both signers are bonded now, and the app awaits on-chain execution
+   and reports any such failure honestly instead of claiming "attested".
 8. The attestation quorum is two signatures from one operator (single trust
    domain), and the claim issuer is a demo issuer — no external KYC provider is
    integrated. Both are stated wherever the demo is presented.

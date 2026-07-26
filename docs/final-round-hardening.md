@@ -200,6 +200,17 @@ failure, so the beat was re-staged on a holder that did own the token; it now
 shows the same route proceeding and then reverting with the filter's **159** once
 the sender is sanctions-revoked. Both transactions are published.
 
+### Live self-onboarding, proven on V5
+
+A full onboarding was run through the **deployed production app** against the V5
+set with a fresh wallet: bind nonce → wallet signature (blocking) → demo-issuer
+claims for `idCommit` only → in-browser-equivalent proof (1.03 s) → live OFAC
+fetch → attest accepted **on-chain** —
+[`930a89f9`](https://testnet.cspr.live/deploy/930a89f99c25f5cf05cb41148ea83a9ad5ac695c2834334f7d0d875fc6fc5136).
+Nonce replay was rejected. This also proves the app's real proofs satisfy V5's
+on-chain canonical pinning, and that both demo signers are bonded (the registry
+rejects attests from slashed signers, so a success is proof of bond state).
+
 ## Residual risks (also in README §12)
 1. In-circuit claim expiry absent (registry-level expiry real; circuit v3 roadmap).
 2. Deployed verifier predates checked-deserialization hardening.

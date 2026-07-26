@@ -33,6 +33,7 @@ af706a71f42e838ea7029785a2b80803798ebb34f61b00d5804119615a1bdf35|ineligible-reci
 dcdf20e5790c67d341f28ef7abb9865598f6e3ddc4f6249c6800179c65ee375b|fraud challenge filed (payable)|-
 79cce54a4fbd125ee81c120150c77b8eda66d5acc16331c94790e2c51ad9193f|fraud resolve: Groth16 FALSE + slash|-
 0013547bf9a13134d14485db39658c9a0576a9e12580129524443f415a00c056|post-fraud recipient revert|User error: 159
+930a89f99c25f5cf05cb41148ea83a9ad5ac695c2834334f7d0d875fc6fc5136|LIVE app self-onboard attest|-
 EOF
 )
 
