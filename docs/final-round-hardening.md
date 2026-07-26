@@ -164,6 +164,42 @@ signers (2 × 250 CSPR via `payable_via_cargo.py`) and re-fund the coordinator
 ~2,500 CSPR, balance-preflight-gated) would additionally activate on-chain
 canonical-input pinning and the checked-deserialization verifier.
 
+## V5 hardened redeploy — the closing pass (funded)
+
+With the deployer funded (5,000 CSPR testnet), the two findings that were
+previously "fixed in code, not on the deployed instance" were closed **on-chain**,
+and the entire demo was regenerated against the new set. Manifest:
+[scripts/deploy/DEPLOYMENT.md](../scripts/deploy/DEPLOYMENT.md); every hash is
+re-checked by `./scripts/verify_live.sh` (**27/27 PASS**, no keys).
+
+| Was | Now |
+|---|---|
+| M-9 verifier shipped checked deserialization, deployed instance did not | verifier redeployed from hardened source — [`2e418b25`](https://testnet.cspr.live/deploy/2e418b25d19076c16cff94613151c823bdc72edaa0f1210a22844784c3b96b71) |
+| M-1 canonical issuer/root pinned only by the off-chain service | pinned **on-chain** via `set_canonical_inputs` — [`09975872`](https://testnet.cspr.live/deploy/099758726ffff9a427fe8a0fdf5a34bb242054e9d0fb5e2f6e0758a698ef16a6) |
+| F-3 placeholder proof (fixed in code) | four holders attested with their **own** real proofs against the pinned canon |
+| Fraud demo used a byte-tampered proof | fraud fixture is now holder X attested with **holder R's valid proof** — deserializes, fails the pairing |
+
+Live re-verification of the economics (README §8 claims vs observed balances):
+challenger +640 CSPR, **treasury 224.6 → 334.6 (+110, a transfer to a spendable
+account — not a burn)**, resolve consumed 95.1 CSPR for the on-chain pairing check.
+
+Two real bugs were found and fixed during this deployment, both now in the scripts:
+
+1. `grant_challenge` was granted to the challenge **contract** hash, so the
+   contract's cross-call to `registry.set_bonded` reverted — Odra addresses
+   contracts by **package** hash. Bonding was impossible until re-granted
+   ([`8cc68bdd`](https://testnet.cspr.live/deploy/8cc68bdd617efd7eb83cac6389c2caf98f38deead92be3942ef77a520520fff1)).
+2. The committed `CredentialRegistry.wasm` predated `set_canonical_inputs`
+   ("No such method"), so both the registry and the verifier were rebuilt from
+   source before deploying. Committed wasms are now the hardened builds.
+
+An honest note on one demo beat: the first kicker attempt reverted with CEP-78
+error **6 (InvalidTokenOwner)** — an earlier run had already moved the token, so
+the sender no longer owned it. That is an ownership failure, not a compliance
+failure, so the beat was re-staged on a holder that did own the token; it now
+shows the same route proceeding and then reverting with the filter's **159** once
+the sender is sanctions-revoked. Both transactions are published.
+
 ## Residual risks (also in README §12)
 1. In-circuit claim expiry absent (registry-level expiry real; circuit v3 roadmap).
 2. Deployed verifier predates checked-deserialization hardening.

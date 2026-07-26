@@ -19,10 +19,14 @@ export function adjacentDocs(slug: string): { prev: DocPage | null; next: DocPag
   };
 }
 
-/** Real, confirmed v4 testnet deploys — clickable proof. */
+/** Real, confirmed V5 testnet deploys — clickable proof (scripts/verify_live.sh
+    re-checks every one against the public node). */
 export const DOCS_TX = {
-  kicker: "3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d",
-  recipientDeny: "ce0f1a3a03131a4de663d04d60243aa4c261a9f0eab24acf55a4f5af9a26a2ad",
-  regulatedAttest: "f3fd7cbba19ef1195d70df72bc3ea073da4b6f78899c261ffadbc305d7a86645",
-  fraudSlash: "0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83",
+  kicker: "1af2d7e6821159b83819fed115ba072b7f10090c385ca18e1d5c71d288f4e7f3",
+  recipientDeny: "af706a71f42e838ea7029785a2b80803798ebb34f61b00d5804119615a1bdf35",
+  regulatedAttest: "a2dc0c8ad4f90f5b9dd86ada48498a2869c1570d75c5b4bb3f542f6cdb70296b",
+  fraudSlash: "79cce54a4fbd125ee81c120150c77b8eda66d5acc16331c94790e2c51ad9193f",
+  postFraudDeny: "0013547bf9a13134d14485db39658c9a0576a9e12580129524443f415a00c056",
+  mintDeny: "7f685f232d4b12f281e09c3b2abe2d9a8cce260c6f17c1fb437860dd9af3fdf3",
+  canonicalPin: "099758726ffff9a427fe8a0fdf5a34bb242054e9d0fb5e2f6e0758a698ef16a6",
 } as const;

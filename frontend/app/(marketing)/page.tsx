@@ -156,7 +156,7 @@ export default function LandingPage() {
             </p>
             <p className="mt-4 text-sm text-ink-subtle">
               A walkthrough of the real mechanism — the same recipient-aware CEP-78 filter that{" "}
-              <Link href="https://testnet.cspr.live/deploy/3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d" target="_blank" rel="noreferrer" className="text-brand underline-offset-2 hover:underline">
+              <Link href="https://testnet.cspr.live/deploy/1af2d7e6821159b83819fed115ba072b7f10090c385ca18e1d5c71d288f4e7f3" target="_blank" rel="noreferrer" className="text-brand underline-offset-2 hover:underline">
                 reverts a sanctioned transfer live on Casper testnet
               </Link>
               . Press the button.

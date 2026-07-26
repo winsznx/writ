@@ -1,8 +1,9 @@
 /*
-  Live Casper testnet deployment — the canonical Writ V4 system (THE demo instance).
+  Live Casper testnet deployment — the canonical Writ V5 system (THE demo instance).
   Fresh registry whose quorum keys are server-held testnet-only demo keys (so any
-  visitor can self-onboard via /api/onboard). Verifier reused from v3. Addresses from
-  internal/v4-keys/manifest_v4.json (put-deploy). Package hash = stable address;
+  visitor can self-onboard via /api/onboard). V5 deploys the hardened verifier (checked deserialization) and pins the canonical
+  public inputs (issuer key + jurisdiction root) on-chain via set_canonical_inputs.
+  Addresses from internal/v5-keys/manifest_v5.json (put-deploy). Package hash = stable address;
   contract hash = active version. Source of truth that replaces the scaffold mocks.
 */
 
@@ -23,32 +24,32 @@ export const CONTRACTS: Record<
   ContractRef
 > = {
   verifier: {
-    pkg: "hash-2bc9a8556c75ee912bab4f7d2cf2622863d1f1e29eb5cf68685a52d6a718ff61",
-    contract: "hash-c99e443ff8cdc6164c863d5f11d88aa309bc105a69d2037bfb7cbfe9dbbb076b",
+    pkg: "hash-1785d5a368b2daa41c490dd83059d8ba8a62631b6112f5fed19e693c82d1d0fd",
+    contract: "hash-e501ca714ece7e9818e861f901c1dd29975bb9ea49f1aa88b0782ea0ddd9caf9",
   },
   registry: {
-    pkg: "hash-2e19e2bfc5383fd51103ee54fb430b53ec7a1a63c83a7841e08f00b188653fca",
-    contract: "hash-a0f8ddec0ce5aa23a12a15059f11e4e76b6a785511402ed3e5478b61a04112d2",
+    pkg: "hash-74148da7b68ce51e4dfa822af7106daaea7140862106a7b675057caf9ee404ce",
+    contract: "hash-4169e95d290b5c80134994ff5e85b8eb335b2df8942ec3ebcb1ec5530ed1ce05",
   },
   challenge: {
-    pkg: "hash-c1080d67eed0c4945eadd84bc016d3b183a650086e39de60fb9c96cfe59dda34",
-    contract: "hash-8bbbce35c98c1cfc6939001642a76ce8f9a23a6d4d5c7799a519039d263c13f4",
+    pkg: "hash-8cddad302d2d882070d62f581e6118ab371a24ced22294b81454754c2a5fd07e",
+    contract: "hash-14ce5c4c13e307f3be4f2588f283c7cf42864a7a548b7e6a09154a70e6f21b0a",
   },
   filter: {
-    pkg: "hash-d84a932187624c1c982ed5c6dcbd1961fe370f732ce02fcbc0fe3e5e28389726",
-    contract: "hash-a2cc8c3da4a61dd997b5191121f48f8617c5bc368144cb374827553bfbdaf933",
+    pkg: "hash-0b1f806b13712752c6740890cb9fae33aa782d47b1c858564d97248c43407fb5",
+    contract: "hash-5254fa90d7fae22ae427f96a458370074a55fe86ce15d15810562ffea459a047",
   },
   filterToken: {
-    pkg: "hash-406e90f7646576e2eb252fe1ce5144823c12b09bfe4c21cede18f9333c5f6d8e",
-    contract: "hash-957deb64d7b194f7ec257b3fed25eeb4eb49fd8c5b989be9543c4306d460727e",
+    pkg: "hash-30cca9f1242679e7396b9a39ad2c087c7a30b1b4848cfb2324bbd4034976d469",
+    contract: "hash-f8c6f324fe5a0407aef252f25da54868066d40e12f689d59a0d7a5d7f656b4e2",
   },
   cep78: {
-    pkg: "hash-ad407c6bccbfc13e9fef28a03b75b175b0d186d3205952be684934c8dcb59bbe",
-    contract: "hash-9fa2af90a582650b338947909100c085f24da6411b3f686a0b24ab9bbde3906a",
+    pkg: "hash-2ce2ff55ebdeb1e72b85dc0634c77ff7a256fb98086fab6d2969af78386e7c97",
+    contract: "hash-cfec210f12199b74ecd2ad7bb0847db00aa4d2f745c478f825996472d83879b5",
   },
   token: {
-    pkg: "hash-512068de722212ce497cb081049649339f0a8994394328164f3dde52c4ab8a3e",
-    contract: "hash-18eb2187587b3022e9dbdf5884fa30b44426bef2b5adca58ee6e56f5e8761f13",
+    pkg: "hash-200cd1830a58a5e6154bf2ab31168523d7e90fe06d166fd9650712aa120c4e1b",
+    contract: "hash-d6bd8dd3b918c04d304aa5f424a4b93b9fffe1c44263df76449f8e77f901d8f5",
   },
 } as const;
 
@@ -64,8 +65,8 @@ export const DEPLOYER =
     little-endian of this field). The regulator surface verifies a disclosed preimage by
     recomputing Poseidon and matching this exact on-chain value. */
 export const REGULATED_HOLDER = {
-  holder: "account-hash-9711698476d5a4f529ad4c2bcc0232ba23d0725b029e482df69075d076b44b3b",
-  commitment: "0x213df7cd6dde3ed3bdbb4523865a1b50939ef70e876fc7116e67cee535b6e0ac",
+  holder: "account-hash-88e898ecd83ebbdbf433c5f383201fc9f3f543aea89310a853888314f0cdb302",
+  commitment: "0x02279cc98f1b933e33ec83b0da410fe85f64b9d088c4f097b08e75d63cc69125",
 } as const;
 
 export function deployUrl(contractOrPkgHash: string): string {

@@ -31,7 +31,13 @@ FILTER_RAW = f"{C}/writ-cep78/fork/target/wasm32-unknown-unknown/release/writ_re
 MANIFEST = f"{REPO_ROOT}/internal/v5-keys/manifest_v5.json"
 ISSUER_PUB_FILE = os.environ.get("ISSUER_PUB_FILE", f"{REPO_ROOT}/internal/issuer_pubkey.txt")
 ALLOWED_ROOT_DEC = "19848524443592487087673442952670162607638248908752257044177040082176667047235"
-MIN_BALANCE_CSPR = 2500
+# Payment cap per step in CSPR — the preflight sums only the steps still missing
+# from the manifest, so a resumed run is gated on what it actually still owes.
+STEP_COSTS = {
+    "verifier": 650, "registry": 500, "canonical": 8, "challenge": 400,
+    "filter_cep78": 150, "filter_token": 300, "cep78": 650, "token": 300,
+    "grant_challenge": 6, "grant_officer": 6,
+}
 
 def q(n): return open(f"{REPO_ROOT}/internal/v4-keys/q{n}/public_key_hex").read().strip()
 
@@ -113,20 +119,24 @@ def step(man, name, wasm, payment, args):
 def raw_filter_contract(pkg_hash):
     out = subprocess.run(["casper-client", "query-global-state", "--node-address", NODE,
         "--state-root-hash", srh(), "--key", pkg_hash], capture_output=True, text=True).stdout
-    m = re.search(r'entity-contract-([a-f0-9]{64})', out)
+    # Casper 2.x reports either `entity-contract-<hash>` or `contract-<hash>`.
+    m = re.search(r'(?:entity-)?contract-([a-f0-9]{64})', out)
     return "hash-" + m.group(1) if m else None
 
 def main():
     acct = deployer_account()
     bal = balance_cspr(acct)
     print(f"deployer {acct} balance {bal} CSPR")
-    if bal < MIN_BALANCE_CSPR:
-        print(f"ABORT: need >= {MIN_BALANCE_CSPR} CSPR liquid to redeploy the full set.")
-        print("Fund the deployer via the testnet faucet, then re-run. Nothing was submitted.")
+    man = load()
+    # Only the steps still missing from the manifest need funding (re-runs resume).
+    remaining = sum(cost for name, cost in STEP_COSTS.items() if name not in man)
+    if bal < remaining:
+        print(f"ABORT: {remaining} CSPR of payment caps still outstanding ({[n for n in STEP_COSTS if n not in man]}).")
+        print("Fund the deployer via the testnet faucet, then re-run — completed steps are cached.")
         sys.exit(2)
 
-    man = load(); Q = [q(1), q(2), q(3)]
-    v = step(man, "verifier", f"{C}/groth16-verifier/wasm/Groth16Verifier.wasm", 400000000000,
+    Q = [q(1), q(2), q(3)]
+    v = step(man, "verifier", f"{C}/groth16-verifier/wasm/Groth16Verifier.wasm", 650000000000,
              odra_cfg("writ_verifier_v5"))
     r = step(man, "registry", f"{C}/credential-registry/wasm/CredentialRegistry.wasm", 500000000000,
              odra_cfg("writ_registry_v5") + [
@@ -193,10 +203,10 @@ def main():
     # wiring
     if "grant_challenge" not in man:
         man["grant_challenge"] = wait(call(r["package"], "grant_challenge",
-            [{"name": "who", "type": "Key", "value": ch["contract"]}], 6000000000), "grant_challenge"); save(man)
+            [{"name": "challenge", "type": "Key", "value": ch["contract"]}], 6000000000), "grant_challenge"); save(man)
     if "grant_officer" not in man:
         man["grant_officer"] = wait(call(r["package"], "grant_officer",
-            [{"name": "who", "type": "Key", "value": OFFICER}], 6000000000), "grant_officer"); save(man)
+            [{"name": "officer", "type": "Key", "value": OFFICER}], 6000000000), "grant_officer"); save(man)
     print("\nNEXT (manual, documented in DEPLOYMENT.md):")
     print("  1. bond the two attestors via payable_via_cargo.py (odra #[payable])")
     print("  2. attest holder R with a REAL proof (attest_real.py or the live app)")

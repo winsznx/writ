@@ -26,10 +26,10 @@ const DEMO: readonly [string, string][] = [
 
 const LIMITS: readonly string[] = [
   "The circuit has no in-circuit expiry/freshness field — credential expiry is enforced on-chain by the registry (attest rejects past expiry; is_active flips at expiry), but an issuer-signed claim set itself does not expire at the ZK layer.",
-  "The deployed on-chain verifier predates this repo's checked-deserialization hardening (packages are locked, so a fix means a redeploy — scheduled as roadmap; the challenge-path risk requires a pairing forgery via non-subgroup points, no practical break known).",
   "The identity secret derives from a deterministic wallet signature — any app that convinces the wallet to sign the exact derivation message could recompute it (the standard signature-derived-key caveat; production replaces this with issuer-held credentials).",
   "The CEP-78 NFT package is upgradable by the installer key (the compliance logic it calls — registry + filter — is locked); a production deployment would lock it or move the upgrade URef to a multisig.",
-  "The challenge path verifies the stored proof's validity for its stored public inputs — it does not compare them to canonical issuer/asset/root; that pinning happens at onboarding (and on-chain via set_canonical_inputs in the hardened registry code, not yet on the deployed instance).",
+  "Canonical binding covers the issuer key and jurisdiction root, which V5 pins ON-CHAIN (set_canonical_inputs) so a forged-issuer proof is rejected at attest; the asset is bound by the quorum-signed message and the per-asset credential key rather than by a public-input comparison. The challenge path itself still only answers 'is this proof valid for these stored inputs'.",
+  "set_canonical_inputs is admin-gated — the deployer key can re-pin the canon; production would renounce admin (path implemented and unit-tested) or hold it behind a multisig.",
   "Bind nonces and rate limits are in-memory (single replica) — fine for the demo topology, documented for production.",
   "Live self-onboarding is currently blocked by the slash demo itself: the fraud-challenge demo slashed the demo signers' bonds, and the registry rejects attestations from unbonded signers (SignerNotBonded) — the economic gate working as designed. The app awaits on-chain execution and reports this failure honestly; re-bonding (2 × 250 CSPR testnet) restores onboarding.",
 ];

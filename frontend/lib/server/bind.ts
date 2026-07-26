@@ -25,7 +25,7 @@ const BIND_TTL_MS = 10 * 60_000;
 const MAX_PENDING = 5_000;
 
 const CHAIN = process.env.CASPER_CHAIN ?? "casper-test";
-const REGISTRY = process.env.REGISTRY_PKG ?? "hash-2e19e2bfc5383fd51103ee54fb430b53ec7a1a63c83a7841e08f00b188653fca";
+const REGISTRY = process.env.REGISTRY_PKG ?? "hash-74148da7b68ce51e4dfa822af7106daaea7140862106a7b675057caf9ee404ce";
 const ASSET = process.env.ASSET_ID ?? "writ-bond-001";
 
 type BindRecord = {

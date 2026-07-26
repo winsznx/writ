@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Re-verify every claim in scripts/deploy/DEPLOYMENT.md against the public testnet
+# Re-verify every V5 claim in scripts/deploy/DEPLOYMENT.md against the public testnet
 # node. Needs only curl + python3 — no keys, no local state. Exit 0 = every claimed
 # transaction exists on casper-test with the claimed outcome.
 set -euo pipefail
@@ -8,19 +8,31 @@ NODE="${CASPER_NODE:-https://node.testnet.casper.network/rpc}"
 
 # hash | label | expected error ("-" = SUCCESS, otherwise substring of error_message)
 CHECKS=$(cat <<'EOF'
-109c1d211085ecd1452de371b03df00221fb9713915136efa4b0a0aed729082c|registry install|-
-60e3ad20e9ca8caa5f6fe19182f3f876a1668b3ddce5055025d870648375509f|challenge install|-
-a738e2bacd35ff9899943d5c66a5556d48f3c1d272af78b5239ee76b08b6267b|writ_registry_filter install|-
-cecb05196c3b764d493eeb0698a72209262a4cef8ebcc0d0954d21c0b5778bd2|transfer-filter install|-
-947bfd49be5be57cf3df4bae60c68e5cbfd2a5233dd83474e84551da972ce5d0|writ-cep78 install|-
-a39e60dc52aff4f0c98550e31a3babbc235f52aa47c98dee9450cfcfb9d6e53c|writ-token install|-
-2a399d0570d25cc39e4f383fa389e29902edd187879fb19ced60c7ee18de7a18|grant_challenge|-
-c7fbc8a87814071e18dafb70a770278fd75b7702fa7e12e31ae0e43fb4d7b925|grant_officer|-
-f3fd7cbba19ef1195d70df72bc3ea073da4b6f78899c261ffadbc305d7a86645|attest (real proof stored)|-
-3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d|sanctioned-sender transfer revert|User error: 159
-ce0f1a3a03131a4de663d04d60243aa4c261a9f0eab24acf55a4f5af9a26a2ad|ineligible-recipient transfer revert|User error: 159
-0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83|fraud slash resolve|-
-8922e979320ba28f38cab32b107893a5f868ec07281c9790c8b57d2b2c5786f9|post-fraud transfer revert|User error: 159
+2e418b25d19076c16cff94613151c823bdc72edaa0f1210a22844784c3b96b71|verifier install (checked deser)|-
+f96b9782c0bfe45a691f8dc0d7388f0b0e22c0cd0f50df592911edfd8f857e62|registry install|-
+099758726ffff9a427fe8a0fdf5a34bb242054e9d0fb5e2f6e0758a698ef16a6|set_canonical_inputs (on-chain pin)|-
+c777a87466732fb0877227f395b26d748eb7e8d4a64d7d4df1b94ee4bfa49e17|challenge install|-
+8c2766e246c9ef3758c726610964176510b9826ee771af854b57d8ffaa5d7d5b|writ_registry_filter install|-
+b9223f839cd213b90ce1d0332f3c937953af8cecca877e039ed5ed4eda8fc680|transfer-filter install|-
+e948e7720adee512c85f5127ef0d491e8c558a651a8a65035226eca94e27dacf|writ-cep78 install|-
+fe6c898a0d8cabcf8beb6971fa09a46008ed720a13f1fcfc6976354615c3a860|writ-token install|-
+8cc68bdd617efd7eb83cac6389c2caf98f38deead92be3942ef77a520520fff1|grant_challenge|-
+7436d6aabda1ab72438858e36512abcc3792ef70e35e5d238adb3c14c2686b61|grant_officer|-
+818c6763032bb6a9b8d8a56faabda159db79498bd90ad3664f9ef066a75cc368|attestor bond q1 (payable)|-
+a2dc0c8ad4f90f5b9dd86ada48498a2869c1570d75c5b4bb3f542f6cdb70296b|attest R (holder proof stored)|-
+a48ca556e5b6f8ffbd601c49587b04642287a4511aae2bb8d446f54abae11184|attest F|-
+fdd73bee6a76c2deaf35684a271536af7c32957e10736e58ede57f534da05f3a|attest E|-
+9e0a65e7b83c30f7d80bc61e155291a47ae0f6e8ff03260f7c6a695b62df46a7|attest X (fraud fixture)|-
+b742f9a3758778572d15613954fca12cfac3a5e2c9dc40673df7271ebd081075|mint to eligible holder|-
+7f685f232d4b12f281e09c3b2abe2d9a8cce260c6f17c1fb437860dd9af3fdf3|mint to ineligible DENIED|User error: 159
+4df6736cf34382c6fbbdbffe2dedf1f1b3d72040e6b78ef4721537f73c912105|eligible transfer|-
+af706a71f42e838ea7029785a2b80803798ebb34f61b00d5804119615a1bdf35|ineligible-recipient revert|User error: 159
+65d81a5aaf7b5fa09bec9ac0867ee12c8ee1b2a84b5eb0a453161e0022ff1984|same route BEFORE sanctions|-
+29ad41132ec153d7f3059750010d502a69abcc3c8a3c95bd642dd47fb4c33f84|officer sanctions revoke|-
+1af2d7e6821159b83819fed115ba072b7f10090c385ca18e1d5c71d288f4e7f3|KICKER sanctioned-sender revert|User error: 159
+dcdf20e5790c67d341f28ef7abb9865598f6e3ddc4f6249c6800179c65ee375b|fraud challenge filed (payable)|-
+79cce54a4fbd125ee81c120150c77b8eda66d5acc16331c94790e2c51ad9193f|fraud resolve: Groth16 FALSE + slash|-
+0013547bf9a13134d14485db39658c9a0576a9e12580129524443f415a00c056|post-fraud recipient revert|User error: 159
 EOF
 )
 

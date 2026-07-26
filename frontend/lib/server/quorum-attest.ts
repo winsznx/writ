@@ -24,7 +24,7 @@ import {
 
 const NODE = process.env.CASPER_NODE ?? "https://node.testnet.casper.network/rpc";
 const CHAIN = process.env.CASPER_CHAIN ?? "casper-test";
-const REGISTRY_PKG = process.env.REGISTRY_PKG ?? "hash-2e19e2bfc5383fd51103ee54fb430b53ec7a1a63c83a7841e08f00b188653fca";
+const REGISTRY_PKG = process.env.REGISTRY_PKG ?? "hash-74148da7b68ce51e4dfa822af7106daaea7140862106a7b675057caf9ee404ce";
 
 function u32le(n: number): Buffer { const b = Buffer.alloc(4); b.writeUInt32LE(n); return b; }
 function u64le(n: number | bigint): Buffer { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b; }

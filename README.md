@@ -21,27 +21,43 @@ on [testnet.cspr.live](https://testnet.cspr.live), and
 `scripts/verify_live.sh` re-checks every claim below against the public node RPC
 from any machine (no keys needed).
 
-### Canonical V4 contracts
+### Canonical V5 contracts (current demo instance)
+
+V5 is the hardened redeploy: the verifier ships **checked deserialization**, and the
+registry **pins the canonical public inputs on-chain** (issuer key + jurisdiction
+root) via `set_canonical_inputs` — so a proof carrying a forged issuer or root is
+rejected at attest, on-chain, not merely by the onboarding service.
 
 | Contract | Source | Role | Package hash |
 |---|---|---|---|
-| groth16-verifier | `contracts/groth16-verifier` | On-chain Groth16 pairing verify — fraud-challenge path only | [`2bc9a855`](https://testnet.cspr.live/contract-package/2bc9a8556c75ee912bab4f7d2cf2622863d1f1e29eb5cf68685a52d6a718ff61) |
-| credential-registry | `contracts/credential-registry` | Per-holder credential: attest, revoke, freeze, status | [`2e19e2bf`](https://testnet.cspr.live/contract-package/2e19e2bfc5383fd51103ee54fb430b53ec7a1a63c83a7841e08f00b188653fca) |
-| challenge | `contracts/challenge` | Fraud disputes: bond → challenge → resolve (slash + treasury transfer) | [`c1080d67`](https://testnet.cspr.live/contract-package/c1080d67eed0c4945eadd84bc016d3b183a650086e39de60fb9c96cfe59dda34) |
-| **writ_registry_filter** | `contracts/writ-cep78/fork/contracts/test-contracts/writ_registry_filter` | **The CEP-78 hook** — `can_transfer` (sender AND recipient) + `mint_allowed`; fail-safe deny | [`d84a9321`](https://testnet.cspr.live/contract-package/d84a932187624c1c982ed5c6dcbd1961fe370f732ce02fcbc0fe3e5e28389726) |
-| transfer-filter (Odra) | `contracts/transfer-filter` | Odra adapter used by writ-token (not the CEP-78 hook) | [`406e90f7`](https://testnet.cspr.live/contract-package/406e90f7646576e2eb252fe1ce5144823c12b09bfe4c21cede18f9333c5f6d8e) |
-| writ-cep78 | `contracts/writ-cep78/fork` | RWA bond NFT (patched CEP-78), wired to writ_registry_filter | [`ad407c6b`](https://testnet.cspr.live/contract-package/ad407c6bccbfc13e9fef28a03b75b175b0d186d3205952be684934c8dcb59bbe) |
-| writ-token | `contracts/writ-token` | Odra demo token + its filter (integration-test model) | [`512068de`](https://testnet.cspr.live/contract-package/512068de722212ce497cb081049649339f0a8994394328164f3dde52c4ab8a3e) |
+| groth16-verifier | `contracts/groth16-verifier` | On-chain Groth16 pairing verify (checked deserialization) — fraud-challenge path only | [`1785d5a3`](https://testnet.cspr.live/contract-package/1785d5a368b2daa41c490dd83059d8ba8a62631b6112f5fed19e693c82d1d0fd) |
+| credential-registry | `contracts/credential-registry` | Credentials + **on-chain canonical input pinning**; attest, revoke, freeze, status | [`74148da7`](https://testnet.cspr.live/contract-package/74148da7b68ce51e4dfa822af7106daaea7140862106a7b675057caf9ee404ce) |
+| challenge | `contracts/challenge` | Fraud disputes: bond → challenge → resolve (slash + treasury transfer) | [`8cddad30`](https://testnet.cspr.live/contract-package/8cddad302d2d882070d62f581e6118ab371a24ced22294b81454754c2a5fd07e) |
+| **writ_registry_filter** | `contracts/writ-cep78/fork/contracts/test-contracts/writ_registry_filter` | **The CEP-78 hook** — `can_transfer` (sender AND recipient) + `mint_allowed`; fail-safe deny | [`0b1f806b`](https://testnet.cspr.live/contract-package/0b1f806b13712752c6740890cb9fae33aa782d47b1c858564d97248c43407fb5) |
+| transfer-filter (Odra) | `contracts/transfer-filter` | Odra adapter used by writ-token (not the CEP-78 hook) | [`30cca9f1`](https://testnet.cspr.live/contract-package/30cca9f1242679e7396b9a39ad2c087c7a30b1b4848cfb2324bbd4034976d469) |
+| writ-cep78 | `contracts/writ-cep78/fork` | RWA bond NFT (patched CEP-78), wired to writ_registry_filter | [`2ce2ff55`](https://testnet.cspr.live/contract-package/2ce2ff55ebdeb1e72b85dc0634c77ff7a256fb98086fab6d2969af78386e7c97) |
+| writ-token | `contracts/writ-token` | Odra demo token + its filter (integration-test model) | [`200cd183`](https://testnet.cspr.live/contract-package/200cd1830a58a5e6154bf2ab31168523d7e90fe06d166fd9650712aa120c4e1b) |
 
-### Proof transactions (each RPC-verified; see `scripts/verify_live.sh`)
+The superseded V4 set remains on-chain and its transactions stay valid history; see
+[DEPLOYMENT_v2.md](./scripts/deploy/DEPLOYMENT_v2.md).
+
+### Proof transactions — all V5, all RPC-verified by `./scripts/verify_live.sh` (27/27)
 
 | What it proves | Deploy hash |
 |---|---|
-| Holder attest — real Poseidon commitment + the holder's proof bytes stored on-chain | [`f3fd7cbb`](https://testnet.cspr.live/deploy/f3fd7cbba19ef1195d70df72bc3ea073da4b6f78899c261ffadbc305d7a86645) |
-| Transfer from a sanctioned (revoked) sender reverts (filter error 159) | [`3448182c`](https://testnet.cspr.live/deploy/3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d) |
-| Recipient-aware deny — transfer to ineligible recipient reverts (159) | [`ce0f1a3a`](https://testnet.cspr.live/deploy/ce0f1a3a03131a4de663d04d60243aa4c261a9f0eab24acf55a4f5af9a26a2ad) |
-| Fraud slash — `resolve` → on-chain Groth16 FALSE → slash 500, pay challenger 640, **110 CSPR to treasury** (~80 CSPR gas for the pairing verify) | [`0ae7aecd`](https://testnet.cspr.live/deploy/0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83) |
-| Post-fraud transfer reverts — RevokedFraud holder blocked (159) | [`8922e979`](https://testnet.cspr.live/deploy/8922e979320ba28f38cab32b107893a5f868ec07281c9790c8b57d2b2c5786f9) |
+| **Canonical inputs pinned on-chain** — issuer key + jurisdiction root written to the registry | [`09975872`](https://testnet.cspr.live/deploy/099758726ffff9a427fe8a0fdf5a34bb242054e9d0fb5e2f6e0758a698ef16a6) |
+| Holder attest — real Poseidon commitment + **the holder's own proof bytes**, accepted only because its public inputs match the pinned canon | [`a2dc0c8a`](https://testnet.cspr.live/deploy/a2dc0c8ad4f90f5b9dd86ada48498a2869c1570d75c5b4bb3f542f6cdb70296b) |
+| Mint to an ineligible recipient reverts (filter error 159) | [`7f685f23`](https://testnet.cspr.live/deploy/7f685f232d4b12f281e09c3b2abe2d9a8cce260c6f17c1fb437860dd9af3fdf3) |
+| Eligible transfer proceeds | [`4df6736c`](https://testnet.cspr.live/deploy/4df6736cf34382c6fbbdbffe2dedf1f1b3d72040e6b78ef4721537f73c912105) |
+| Recipient-aware deny — transfer to ineligible recipient reverts (159) | [`af706a71`](https://testnet.cspr.live/deploy/af706a71f42e838ea7029785a2b80803798ebb34f61b00d5804119615a1bdf35) |
+| **The kicker** — the *same route* proceeds [`65d81a5a`](https://testnet.cspr.live/deploy/65d81a5aaf7b5fa09bec9ac0867ee12c8ee1b2a84b5eb0a453161e0022ff1984), then reverts (159) after a sanctions revoke [`29ad4113`](https://testnet.cspr.live/deploy/29ad41132ec153d7f3059750010d502a69abcc3c8a3c95bd642dd47fb4c33f84) | [`1af2d7e6`](https://testnet.cspr.live/deploy/1af2d7e6821159b83819fed115ba072b7f10090c385ca18e1d5c71d288f4e7f3) |
+| Fraud slash — `resolve` → on-chain Groth16 **FALSE** → slash 500, challenger paid 640, **110 CSPR transferred to treasury** (95.1 CSPR gas for the pairing verify) | [`79cce54a`](https://testnet.cspr.live/deploy/79cce54a4fbd125ee81c120150c77b8eda66d5acc16331c94790e2c51ad9193f) |
+| Post-fraud — transfer to the RevokedFraud holder reverts (159) | [`0013547b`](https://testnet.cspr.live/deploy/0013547bf9a13134d14485db39658c9a0576a9e12580129524443f415a00c056) |
+
+The fraud fixture is honest by construction: holder X was attested with **another
+holder's valid proof** against X's own public inputs. It deserializes (so the
+checked verifier accepts the encoding) but fails the pairing — exactly what a
+forged credential looks like, and exactly what the challenge path is for.
 
 Full manifest with install txs, gas, and the payable-call workaround:
 [scripts/deploy/DEPLOYMENT.md](./scripts/deploy/DEPLOYMENT.md).
@@ -190,36 +206,32 @@ payable-call workaround).
 
 1. No in-circuit claim expiry (registry-level expiry is enforced on-chain; circuit
    v3 planned — see `circuits/README.md`).
-2. The deployed verifier instance predates the checked-deserialization hardening
-   in this repo (locked package → fix requires redeploy; exploiting the deployed
-   instance would require a pairing forgery via non-subgroup points — no known
-   practical break, disclosed regardless).
-3. Identity secret is derived from a deterministic wallet signature — any app that
+2. Identity secret is derived from a deterministic wallet signature — any app that
    obtains a signature over the exact derivation message could recompute it
    (standard signature-derived-key caveat; production: issuer-held credentials).
-4. Public-input binding, stated precisely: the challenge path verifies whether the
-   published Groth16 proof is valid **for the stored public inputs** — it does NOT
-   check those inputs against any canonical issuer/asset/root, so a malicious
-   QUORUM_ROLE caller storing a valid proof for a forged issuer or root would not
-   be caught by a challenge. In this build the issuer/asset/root are pinned by the
-   onboarding service before attestation, and the hardened registry can pin all
-   six inputs **on-chain** (`set_canonical_inputs`, admin-gated, unit-tested:
-   wrong issuer / wrong asset / wrong root rejected at attest). The **deployed
-   testnet instance predates that entrypoint** (locked package) and binds
-   nullifier + commitment only on-chain.
+3. **Canonical binding covers issuer key and jurisdiction root, not asset id.**
+   V5 pins `issuerAx/issuerAy/allowedRoot` on-chain and rejects a mismatching
+   attest; the asset is bound by the quorum-signed message and the registry's
+   per-asset credential key rather than by a public-input comparison. The
+   challenge path itself still only answers "is this proof valid for these stored
+   inputs" — it is the pinning, not the challenge, that stops a forged issuer.
+4. `set_canonical_inputs` is admin-gated: the deployer key can re-pin the canon.
+   Production would renounce admin after wiring (the renounce path is implemented
+   and unit-tested) or hold it behind a multisig.
 5. Bind nonces / rate limits are in-memory (single replica).
-6. The challenge "treasury" is a spendable account, not an unspendable sink.
-7. **Live self-onboarding is currently blocked by the slash demo itself**: the
-   fraud-challenge demo (`0ae7aecd`) slashed the two demo signers' bonds, and the
-   registry rejects attestations from unbonded signers (`SignerNotBonded`, error
-   11) — the economic gate working as designed. A full onboarding was run through
-   the deployed production app end-to-end (bind → demo-issuer claims →
-   in-browser-equivalent proving → screening → attest submission, deploy
-   [`4d9ef21a`](https://testnet.cspr.live/deploy/4d9ef21aed6fd95eaacc924e5ec505248ddbeee3d4b55aa764e9c5085f9f91bb));
-   the chain correctly rejected it with error 11. The app now awaits on-chain
-   execution and reports this failure honestly (it never claims "attested" for a
-   failed deploy). Re-bonding the signers (2 × 250 CSPR) and re-funding the
-   coordinator require testnet faucet funds.
+6. The challenge "treasury" is a spendable account, not an unspendable sink — we
+   call it a treasury transfer, never a burn. Verified live: +110 CSPR.
+7. **Live self-onboarding needs both demo signers bonded.** The V5 fraud demo
+   slashed both bonds (by design — that is what a successful challenge does).
+   One signer has been re-bonded; the second re-bond is pending testnet faucet
+   funds, and until then the registry correctly rejects attests with
+   `SignerNotBonded` (error 11). The app awaits on-chain execution and reports
+   that failure honestly — it never claims "attested" for a failed deploy.
+8. The attestation quorum is two signatures from one operator (single trust
+   domain), and the claim issuer is a demo issuer — no external KYC provider is
+   integrated. Both are stated wherever the demo is presented.
+9. The CEP-78 NFT package is upgradable by the installer key (the compliance
+   logic it calls is locked); disclosed in §9.
 
 ---
 
