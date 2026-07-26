@@ -31,6 +31,7 @@ const LIMITS: readonly string[] = [
   "The CEP-78 NFT package is upgradable by the installer key (the compliance logic it calls — registry + filter — is locked); a production deployment would lock it or move the upgrade URef to a multisig.",
   "The challenge path verifies the stored proof's validity for its stored public inputs — it does not compare them to canonical issuer/asset/root; that pinning happens at onboarding (and on-chain via set_canonical_inputs in the hardened registry code, not yet on the deployed instance).",
   "Bind nonces and rate limits are in-memory (single replica) — fine for the demo topology, documented for production.",
+  "Live self-onboarding is currently blocked by the slash demo itself: the fraud-challenge demo slashed the demo signers' bonds, and the registry rejects attestations from unbonded signers (SignerNotBonded) — the economic gate working as designed. The app awaits on-chain execution and reports this failure honestly; re-bonding (2 × 250 CSPR testnet) restores onboarding.",
 ];
 
 export default function DocsWhatsReal() {

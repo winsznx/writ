@@ -209,6 +209,17 @@ payable-call workaround).
    nullifier + commitment only on-chain.
 5. Bind nonces / rate limits are in-memory (single replica).
 6. The challenge "treasury" is a spendable account, not an unspendable sink.
+7. **Live self-onboarding is currently blocked by the slash demo itself**: the
+   fraud-challenge demo (`0ae7aecd`) slashed the two demo signers' bonds, and the
+   registry rejects attestations from unbonded signers (`SignerNotBonded`, error
+   11) — the economic gate working as designed. A full onboarding was run through
+   the deployed production app end-to-end (bind → demo-issuer claims →
+   in-browser-equivalent proving → screening → attest submission, deploy
+   [`4d9ef21a`](https://testnet.cspr.live/deploy/4d9ef21aed6fd95eaacc924e5ec505248ddbeee3d4b55aa764e9c5085f9f91bb));
+   the chain correctly rejected it with error 11. The app now awaits on-chain
+   execution and reports this failure honestly (it never claims "attested" for a
+   failed deploy). Re-bonding the signers (2 × 250 CSPR) and re-funding the
+   coordinator require testnet faucet funds.
 
 ---
 

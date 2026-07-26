@@ -134,5 +134,48 @@ export async function submitAttest(args: {
   if (json.error) throw new Error(json.error.message ?? "put_deploy failed");
   const deployHash = json.result?.deploy_hash;
   if (!deployHash) throw new Error("no deploy hash from node");
+
+  // AWAIT on-chain execution — never report "attested" for a deploy that failed.
+  await awaitExecution(deployHash);
   return { deployHash, commitment: commitment.toString("hex"), nullifier: nullifier.toString("hex") };
+}
+
+/** Registry error decode for honest onboarding failures (registry.rs RegistryError). */
+const REGISTRY_ERRORS: Record<number, string> = {
+  1: "NotAuthorized", 4: "NullifierReused", 5: "UnknownSigner", 7: "ThresholdNotMet",
+  9: "SignerSignatureCountMismatch",
+  11: "SignerNotBonded — the demo signers' bonds were slashed in the live fraud-challenge demo; attestation is blocked until the operator re-bonds them (the economic mechanism working as designed)",
+  12: "PublicInputBindingMismatch", 13: "NotRefreshable",
+  20: "CanonicalInputMismatch",
+};
+
+export class AttestExecutionError extends Error {
+  constructor(public deployHash: string, message: string) {
+    super(message);
+  }
+}
+
+async function awaitExecution(deployHash: string, timeoutMs = 110_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 6_000));
+    const res = await fetch(NODE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "info_get_deploy", params: { deploy_hash: deployHash } }),
+    });
+    const json = (await res.json()) as {
+      result?: { execution_info?: { execution_result?: { Version2?: { error_message?: string | null } } } };
+    };
+    const v2 = json.result?.execution_info?.execution_result?.Version2;
+    if (!v2) continue;
+    if (!v2.error_message) return;
+    const code = /User error: (\d+)/.exec(v2.error_message)?.[1];
+    const decoded = code ? REGISTRY_ERRORS[Number(code)] : undefined;
+    throw new AttestExecutionError(
+      deployHash,
+      `on-chain attest failed: ${decoded ?? v2.error_message}`,
+    );
+  }
+  throw new AttestExecutionError(deployHash, "attest execution not confirmed within 110s — check the deploy on the explorer");
 }

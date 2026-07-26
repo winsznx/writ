@@ -23,7 +23,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { canonicalPublicValues, IssuerKeyMissingError } from "@/lib/server/issuer-input";
 import { screenParties, ScreeningUnavailableError } from "@/lib/server/screen";
-import { submitAttest } from "@/lib/server/quorum-attest";
+import { submitAttest, AttestExecutionError } from "@/lib/server/quorum-attest";
 import { proofToArkBytes, arkBytesToProofCoords, MalformedProofError } from "@/lib/server/proof-serde";
 import { rateLimit, capCheck, markOnboarded, isTestnet } from "@/lib/server/guards";
 import { verifyBindStrict } from "@/lib/server/bind";
@@ -144,6 +144,12 @@ export async function POST(req: Request): Promise<Response> {
     }
     if (e instanceof MalformedProofError) {
       return Response.json({ error: e.message }, { status: 400 });
+    }
+    if (e instanceof AttestExecutionError) {
+      return Response.json(
+        { error: e.message, deployHash: e.deployHash, status: "attest-failed-on-chain" },
+        { status: 502 },
+      );
     }
     return Response.json({ error: e instanceof Error ? e.message : "onboard failed" }, { status: 500 });
   }

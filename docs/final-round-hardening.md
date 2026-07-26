@@ -133,6 +133,37 @@ the path-portability rewrite) and the disclosure fixtures themselves
 (`disclosure/fixtures/` now committed, with `circuits/build` taking precedence
 when present).
 
+## Live production E2E (post-merge, deployed app)
+
+A full onboarding was executed against the deployed production app
+(writ-app-production.up.railway.app) with a fresh throwaway wallet, playing the
+browser's role exactly (same derivation, same endpoints):
+
+- `/api/bind` → nonce issued; wallet-signed (blocking bind verified server-side)
+- `/api/claims` → demo issuer signed the claim set for `idCommit` only
+  (server never saw the identity secret)
+- in-node `groth16.fullProve` with the served artifacts (~2.2 s)
+- `/api/onboard` → proof verified, all six public inputs pinned, OFAC list
+  fetched live (96 entries, content-hashed), holder's own proof serialized and
+  submitted in attest deploy
+  [`4d9ef21a`](https://testnet.cspr.live/deploy/4d9ef21aed6fd95eaacc924e5ec505248ddbeee3d4b55aa764e9c5085f9f91bb)
+- nonce replay → rejected
+
+**On-chain outcome: the attest was rejected with `SignerNotBonded` (error 11)** —
+correct behavior: the live fraud-slash demo (`0ae7aecd`) slashed the demo
+signers' bonds, and slashed signers cannot attest. This also exposed an honesty
+bug (the API reported "attested" without awaiting execution), fixed in this
+pass: `submitAttest` now polls `info_get_deploy` and the route returns
+`attest-failed-on-chain` (502) with the decoded registry error; `markOnboarded`
+runs only on confirmed success.
+
+Restoring live self-onboarding requires testnet faucet funds: re-bond the two
+signers (2 × 250 CSPR via `payable_via_cargo.py`) and re-fund the coordinator
+(the full attest payment cap is charged on testnet; cap is env-tunable via
+`ATTEST_PAYMENT_MOTES`). A funded V5 redeploy (`scripts/deploy/deploy_v5.py`,
+~2,500 CSPR, balance-preflight-gated) would additionally activate on-chain
+canonical-input pinning and the checked-deserialization verifier.
+
 ## Residual risks (also in README §12)
 1. In-circuit claim expiry absent (registry-level expiry real; circuit v3 roadmap).
 2. Deployed verifier predates checked-deserialization hardening.
