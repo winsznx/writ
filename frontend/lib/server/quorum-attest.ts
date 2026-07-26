@@ -113,8 +113,12 @@ export async function submitAttest(args: {
   const coordKp = Keys.Ed25519.parseKeyPair(ed25519.getPublicKey(coordSeed), coordSeed);
   const regHash = Uint8Array.from(Buffer.from(REGISTRY_PKG.replace(/^hash-/, ""), "hex"));
   const session = DeployUtil.ExecutableDeployItem.newStoredVersionContractByHash(regHash, null, "attest", runtimeArgs);
+  // Payment cap for the attest deploy (motes). Consumed gas is ~15 CSPR; the cap
+  // must be covered by the coordinator balance upfront, so it is env-tunable for
+  // low-balance testnet coordinators.
+  const paymentMotes = BigInt(process.env.ATTEST_PAYMENT_MOTES ?? "90000000000");
   let deploy = DeployUtil.makeDeploy(
-    new DeployUtil.DeployParams(coordKp.publicKey, CHAIN), session, DeployUtil.standardPayment(90_000_000_000),
+    new DeployUtil.DeployParams(coordKp.publicKey, CHAIN), session, DeployUtil.standardPayment(paymentMotes),
   );
   deploy = DeployUtil.signDeploy(deploy, coordKp);
 
