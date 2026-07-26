@@ -53,7 +53,7 @@ This is the most important thing to understand about Writ.
 
 **On-chain** — at attest time:
 
-- The registry `attest` entrypoint verifies ed25519 quorum signatures and the public-input binding (`pi[0..32] == nullifier`, `pi[32..64] == commitment`). It records the commitment, nullifier, signer set, expiry, and the stored proof.
+- The registry `attest` entrypoint verifies ed25519 quorum signatures and the public-input binding (`pi[0..32] == nullifier`, `pi[32..64] == commitment`, plus `pi[64..192]` against the pinned issuer key and jurisdiction root). It records the commitment, nullifier, signer set, expiry, and the holder's own stored proof.
 - The on-chain Groth16 pairing check runs **only in the fraud-challenge path**: `challenge.resolve` reads the credential's own stored proof from the registry, calls `groth16_verifier.verify`, and slashes or clears accordingly.
 
 The honest framing: **verify off-chain, commit on-chain; re-verify on-chain only to adjudicate fraud.**
@@ -67,7 +67,7 @@ All six are live on `casper-test`. Package hashes (stable addresses) link to the
 ### 2.1 groth16-verifier
 
 **Source:** `contracts/groth16-verifier/src/verifier.rs`  
-**Package hash:** [`2bc9a855…`](https://testnet.cspr.live/contract-package/2bc9a8556c75ee912bab4f7d2cf2622863d1f1e29eb5cf68685a52d6a718ff61)
+**Package hash:** [`1785d5a3…`](https://testnet.cspr.live/contract-package/1785d5a368b2daa41c490dd83059d8ba8a62631b6112f5fed19e693c82d1d0fd)
 
 Performs the Groth16-BN254 pairing check as pure-WASM arkworks inside the contract (Casper testnet has no native EC pairing host function in `vm_casper_v1`). The eligibility circuit's verifying key is compiled in as an immutable constant (`VK_BYTES = include_bytes!("../fixtures/vk_uncompressed.bin")`); it cannot be swapped after install.
 
@@ -77,7 +77,7 @@ Public interface: one entrypoint.
 verify(proof: Bytes, public_inputs: Bytes) -> bool
 ```
 
-`public_inputs` is 6 × 32-byte BN254 scalar-field elements (little-endian), canonical circuit order: `[nullifier, commitment, issuerAx, issuerAy, assetId, allowedRoot]`. Deserialization of caller-supplied material is **checked** (on-curve + subgroup for proof points, canonical range for field elements — added in the hardening pass; the deployed testnet instance predates this and is scheduled for redeploy, disclosed in README §12). Any malformed input returns `false`; it never panics or reverts.
+`public_inputs` is 6 × 32-byte BN254 scalar-field elements (little-endian), canonical circuit order: `[nullifier, commitment, issuerAx, issuerAy, assetId, allowedRoot]`. Deserialization of caller-supplied material is **checked** (on-curve + subgroup for proof points, canonical range for field elements — added in the hardening pass and **live on the V5 instance**, install `2e418b25`). Any malformed input returns `false`; it never panics or reverts.
 
 **Called exclusively by the challenge contract's `resolve` path.** It is never called at onboarding.
 
@@ -86,7 +86,7 @@ Measured gas for a full pairing verify on the Casper EE: **~79.29 CSPR**.
 ### 2.2 credential-registry
 
 **Source:** `contracts/credential-registry/src/registry.rs`  
-**Package hash:** [`2e19e2bf…`](https://testnet.cspr.live/contract-package/2e19e2bfc5383fd51103ee54fb430b53ec7a1a63c83a7841e08f00b188653fca)
+**Package hash:** [`74148da7…`](https://testnet.cspr.live/contract-package/74148da7b68ce51e4dfa822af7106daaea7140862106a7b675057caf9ee404ce)
 
 The on-chain heart of the compliance layer. Stores per-holder eligibility credentials keyed by `(asset_id, holder)`. Each `Credential` holds:
 
@@ -110,7 +110,7 @@ The on-chain heart of the compliance layer. Stores per-holder eligibility creden
 Key entrypoints:
 
 - `attest` — writes a credential after verifying quorum ed25519 signatures over the canonical message and enforcing the public-input binding (`pi[0..64]` always; `pi[64..192]` against the pinned issuer/asset/root when `set_canonical_inputs` has been called).
-- `set_canonical_inputs` — admin-gated pinning of the canonical issuer key + allowed root; once set, an attest carrying public inputs for a forged issuer, another asset, or a different root reverts `CanonicalInputMismatch` (hardened build; the deployed testnet instance predates this entrypoint).
+- `set_canonical_inputs` — admin-gated pinning of the canonical issuer key + allowed root; once set, an attest carrying public inputs for a forged issuer, another asset, or a different root reverts `CanonicalInputMismatch`. **Pinned on the live V5 registry** by tx `09975872` — so this is enforced on-chain, not only by the onboarding service.
 - `revoke` — immediate sanctions revocation; callable by quorum or officer.
 - `revoke_fraud` — terminal fraud state; callable only by the challenge contract.
 - `freeze` / `unfreeze` — challenge-layer dispute management; suspends expiry.
@@ -123,7 +123,7 @@ Key entrypoints:
 ### 2.3 challenge
 
 **Source:** `contracts/challenge/src/challenge.rs`  
-**Package hash:** [`c1080d67…`](https://testnet.cspr.live/contract-package/c1080d67eed0c4945eadd84bc016d3b183a650086e39de60fb9c96cfe59dda34)
+**Package hash:** [`8cddad30…`](https://testnet.cspr.live/contract-package/8cddad302d2d882070d62f581e6118ab371a24ced22294b81454754c2a5fd07e)
 
 The optimistic fraud-proof layer. Attestations are accepted optimistically; anyone who believes an attestation is fraudulent can open a dispute.
 
@@ -142,7 +142,7 @@ Frivolous challenge resolution: proof **valid** → credential unfrozen (Active,
 ### 2.4 transfer-filter (writ_registry_filter)
 
 **Source:** `contracts/transfer-filter/src/filter.rs` (Odra adapter) and `contracts/writ-cep78/fork/contracts/test-contracts/writ_registry_filter/src/main.rs` (production CEP-78 hook)  
-**Package hash:** [`d84a9321…`](https://testnet.cspr.live/contract-package/d84a932187624c1c982ed5c6dcbd1961fe370f732ce02fcbc0fe3e5e28389726)
+**Package hash:** [`0b1f806b…`](https://testnet.cspr.live/contract-package/0b1f806b13712752c6740890cb9fae33aa782d47b1c858564d97248c43407fb5)
 
 The CEP-78 `transfer_filter_contract`. On every transfer the token calls:
 
@@ -156,14 +156,14 @@ The filter is **recipient-aware**: it checks both sender and recipient eligibili
 ### 2.5 writ-cep78
 
 **Source:** `contracts/writ-cep78/fork/`  
-**Package hash:** [`ad407c6b…`](https://testnet.cspr.live/contract-package/ad407c6bccbfc13e9fef28a03b75b175b0d186d3205952be684934c8dcb59bbe)
+**Package hash:** [`2ce2ff55…`](https://testnet.cspr.live/contract-package/2ce2ff55ebdeb1e72b85dc0634c77ff7a256fb98086fab6d2969af78386e7c97)
 
 The RWA bond NFT. A real CEP-78 implementation wired to the transfer-filter contract (`transfer_filter_contract` install argument). Mint is gated by `mint_allowed`; every transfer is gated by `can_transfer`. The fork is the production-deployed contract; the `writ_registry_filter` test contract in the fork tree is the compatibility shim that exposes the `can_transfer` / `mint_allowed` entrypoints the CEP-78 spec requires.
 
 ### 2.6 writ-token
 
 **Source:** `contracts/writ-token/src/token.rs`  
-**Package hash:** [`512068de…`](https://testnet.cspr.live/contract-package/512068de722212ce497cb081049649339f0a8994394328164f3dde52c4ab8a3e)
+**Package hash:** [`200cd183…`](https://testnet.cspr.live/contract-package/200cd1830a58a5e6154bf2ab31168523d7e90fe06d166fd9650712aa120c4e1b)
 
 An Odra-native filter-gated token used in the integration test suite (`contracts/integration/`). Captures the one property the integration cares about: every `transfer` call consults the configured filter, which delegates to the registry compliance gate. A transfer to or from an ineligible party reverts with `TransferDenied`. This contract is the EE-testable model of the CEP-78 behavior; the live RWA NFT on testnet uses writ-cep78.
 
@@ -403,7 +403,7 @@ Disclosure is Poseidon-commitment-only. There is no ciphertext escrow in the reg
 2. The regulator calls `verifyDisclosure(pkg, onchainCommitment)`, which recomputes `Poseidon(claims, salt)` using the same `circuits/commitment.js` library used at onboarding.
 3. If `recomputed === onchainCommitment` (byte-for-byte; the on-chain `ByteArray` is the little-endian encoding of the field element), the claims are provably the committed ones. Any tampered claim or salt produces a different commitment.
 
-The disclosure suite (`disclosure/src/test_disclosure.js`) reuses the same Poseidon/commitment library as the live onboarding path, and recomputes the commitment for the live on-chain credential (`f3fd7cbba19ef1195d70df72bc3ea073da4b6f78899c261ffadbc305d7a86645`) byte-for-byte.
+The disclosure suite (`disclosure/src/test_disclosure.js`) reuses the same Poseidon/commitment library as the live onboarding path, and recomputes the commitment for the live on-chain credential (`a2dc0c8ad4f90f5b9dd86ada48498a2869c1570d75c5b4bb3f542f6cdb70296b`) byte-for-byte.
 
 ---
 
@@ -421,14 +421,14 @@ The disclosure suite (`disclosure/src/test_disclosure.js`) reuses the same Posei
 
 Real gas measurements from the Casper EE:
 
-- On-chain Groth16 `verify`: **~79.29 CSPR**
+- Fraud `resolve` (incl. the on-chain Groth16 pairing verify cross-call): **95.1 CSPR** measured on the V5 set (`79cce54a`); the isolated `verify` entrypoint measured ~79.29 CSPR on V4
 - Fraud-slash treasury transfer: **110 CSPR** (testnet demo bond sizes)
 
 Live testnet transaction proofs:
 
 | Scenario | Deploy hash |
 |---|---|
-| Regulated holder attest (real Poseidon commitment) | [`f3fd7cbb…`](https://testnet.cspr.live/deploy/f3fd7cbba19ef1195d70df72bc3ea073da4b6f78899c261ffadbc305d7a86645) |
-| Transfer from sanctioned sender reverts (filter error 159) | [`3448182c…`](https://testnet.cspr.live/deploy/3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d) |
-| Transfer to ineligible recipient reverts (recipient-aware deny, error 159) | [`ce0f1a3a…`](https://testnet.cspr.live/deploy/ce0f1a3a03131a4de663d04d60243aa4c261a9f0eab24acf55a4f5af9a26a2ad) |
-| Fraud slash (resolve → Groth16 FALSE → slash 500, 110 CSPR treasury transfer) | [`0ae7aecd…`](https://testnet.cspr.live/deploy/0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83) |
+| Regulated holder attest (real Poseidon commitment) | [`a2dc0c8a…`](https://testnet.cspr.live/deploy/a2dc0c8ad4f90f5b9dd86ada48498a2869c1570d75c5b4bb3f542f6cdb70296b) |
+| Transfer from sanctioned sender reverts (filter error 159) | [`1af2d7e6…`](https://testnet.cspr.live/deploy/1af2d7e6821159b83819fed115ba072b7f10090c385ca18e1d5c71d288f4e7f3) |
+| Transfer to ineligible recipient reverts (recipient-aware deny, error 159) | [`af706a71…`](https://testnet.cspr.live/deploy/af706a71f42e838ea7029785a2b80803798ebb34f61b00d5804119615a1bdf35) |
+| Fraud slash (resolve → Groth16 FALSE → slash 500, 110 CSPR treasury transfer) | [`79cce54a…`](https://testnet.cspr.live/deploy/79cce54a4fbd125ee81c120150c77b8eda66d5acc16331c94790e2c51ad9193f) |

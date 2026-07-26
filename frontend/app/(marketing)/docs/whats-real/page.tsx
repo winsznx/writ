@@ -9,7 +9,7 @@ const LIVE: readonly [string, string][] = [
   ["On-chain Groth16 verification in the challenge path", "the fraud slash tx consumed ~80 CSPR running the pairing check inside the contract"],
   ["Economic slash", "500 CSPR slashed, 640 to the challenger, 110 transferred to the treasury account (spendable — a treasury transfer, not a burn)"],
   ["In-browser proof generation", "snarkjs Groth16 against the real eligibility circuit; identity secret derived from a wallet signature, never sent to the server"],
-  ["On-chain public-input binding", "registry rejects an attest whose public inputs don't match the credential's nullifier + commitment; the server pins issuer key, asset, and jurisdiction root; the hardened registry code can pin all six on-chain (set_canonical_inputs, unit-tested) — the deployed instance predates that entrypoint"],
+  ["On-chain public-input binding", "the live V5 registry rejects an attest whose public inputs don't match the credential's nullifier + commitment, AND whose issuer key or jurisdiction root differ from the values pinned on-chain by set_canonical_inputs (tx 09975872); the onboarding service pins the same values independently"],
   ["Live sanctions data fetch", "the OFAC SDN digital-currency (ETH) list is fetched live with content hash + timestamp; unavailable or stale data blocks attestation"],
   ["Selective disclosure", "regulator surface recomputes Poseidon(claims) and matches the live on-chain commitment byte-for-byte"],
 ];

@@ -1,6 +1,6 @@
-// Selective disclosure — every path, asserted. Uses the REAL onboarded claims
-// and the REAL on-chain commitment (public.json[1] == the verifier fixture
-// commitment). The demo holder's witness is committed as a public fixture in
+// Selective disclosure — every path, asserted. Uses the REAL onboarded claims of
+// V5 demo holder R and R's REAL on-chain commitment (public.json[1] equals the
+// ByteArray stored by attest a2dc0c8a on the canonical V5 registry). The demo holder's witness is committed as a public fixture in
 // disclosure/fixtures/ (its preimage is intentionally public — see /docs/whats-real)
 // so this suite runs from a clean clone; a regenerated circuits/build takes
 // precedence when present.
@@ -19,7 +19,7 @@ const input = load("input_eligible.json");
 // public inputs order: [nullifier, commitment, issuerAx, issuerAy, assetId, allowedRoot]
 const ONCHAIN_COMMITMENT = load("elig2_public.json")[1];
 const ASSET = "writ-bond-001";
-const HOLDER = "account-hash-85d28e05f316f6468b1e96e319df620a0c2270bde6f876144ec441145002697b";
+const HOLDER = "account-hash-88e898ecd83ebbdbf433c5f383201fc9f3f543aea89310a853888314f0cdb302";
 
 const claims = {
   accredited: input.accredited,

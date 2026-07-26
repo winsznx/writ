@@ -53,13 +53,13 @@ return is_active(recipient)    // recipient must be live; no credential -> false
 
 A holder with no credential cannot receive an asset. The mint sentinel bypasses the sender check (so issuance works) but the recipient must still be active. Any revert in the filter call propagates as CEP-78 user error 159, blocking the transfer.
 
-Live evidence: transfer to ineligible recipient reverts at [ce0f1a3a03131a4de663d04d60243aa4c261a9f0eab24acf55a4f5af9a26a2ad](https://testnet.cspr.live/deploy/ce0f1a3a03131a4de663d04d60243aa4c261a9f0eab24acf55a4f5af9a26a2ad) (CEP-78 user error 159).
+Live evidence: transfer to ineligible recipient reverts at [af706a71f42e838ea7029785a2b80803798ebb34f61b00d5804119615a1bdf35](https://testnet.cspr.live/deploy/af706a71f42e838ea7029785a2b80803798ebb34f61b00d5804119615a1bdf35) (CEP-78 user error 159).
 
 Source: `registry.rs` lines 738–749.
 
 ### 2.5 Public-Input Binding
 
-At `attest` time the registry enforces that `public_inputs[0:32] == nullifier` and `public_inputs[32:64] == commitment` — reverting `PublicInputBindingMismatch` otherwise. In the hardened build the admin can additionally pin the canonical issuer key and allowed-jurisdiction root on-chain (`set_canonical_inputs`); once pinned, `attest` also enforces `public_inputs[64:192]` against the pinned issuer, the call's own asset encoding, and the pinned root, reverting `CanonicalInputMismatch` (tests: `canonical_wrong_issuer/asset/root_rejected_on_chain`). Without that pinning — including on the deployed testnet instance, which predates the entrypoint — a malicious QUORUM_ROLE caller could store a valid proof naming a forged issuer or attacker-chosen root, and **the challenge would not catch it**: resolve verifies the stored proof against the stored inputs, nothing more. In the shipped demo that gap is closed by the onboarding service, which pins issuer/asset/root before any attest.
+At `attest` time the registry enforces that `public_inputs[0:32] == nullifier` and `public_inputs[32:64] == commitment` — reverting `PublicInputBindingMismatch` otherwise. In the hardened build the admin can additionally pin the canonical issuer key and allowed-jurisdiction root on-chain (`set_canonical_inputs`); once pinned, `attest` also enforces `public_inputs[64:192]` against the pinned issuer, the call's own asset encoding, and the pinned root, reverting `CanonicalInputMismatch` (tests: `canonical_wrong_issuer/asset/root_rejected_on_chain`). The canonical values are **pinned on the live V5 registry** (tx `09975872`), so this is enforced on-chain. It matters because the challenge path alone would not catch it: resolve verifies the stored proof against the stored inputs and nothing more, so without pinning a malicious QUORUM_ROLE caller could store a valid proof naming a forged issuer or attacker-chosen root. The onboarding service pins the same values before signing, giving two independent gates.
 
 At `resolve` time the challenge contract reads the credential's **own stored proof and public inputs** — never caller-supplied data. An attacker cannot supply a different valid proof at resolve time; the verifier runs against exactly the bytes that were stored at attest time.
 
@@ -262,22 +262,22 @@ All six contracts are deployed and verified on Casper testnet. Package hashes (s
 
 | Contract | Package hash |
 |---|---|
-| groth16-verifier | [2bc9a855…](https://testnet.cspr.live/contract-package/2bc9a8556c75ee912bab4f7d2cf2622863d1f1e29eb5cf68685a52d6a718ff61) |
-| credential-registry | [2e19e2bf…](https://testnet.cspr.live/contract-package/2e19e2bfc5383fd51103ee54fb430b53ec7a1a63c83a7841e08f00b188653fca) |
-| challenge | [c1080d67…](https://testnet.cspr.live/contract-package/c1080d67eed0c4945eadd84bc016d3b183a650086e39de60fb9c96cfe59dda34) |
-| writ_registry_filter (CEP-78 hook) | [d84a9321…](https://testnet.cspr.live/contract-package/d84a932187624c1c982ed5c6dcbd1961fe370f732ce02fcbc0fe3e5e28389726) |
-| writ-cep78 | [ad407c6b…](https://testnet.cspr.live/contract-package/ad407c6bccbfc13e9fef28a03b75b175b0d186d3205952be684934c8dcb59bbe) |
-| writ-token | [512068de…](https://testnet.cspr.live/contract-package/512068de722212ce497cb081049649339f0a8994394328164f3dde52c4ab8a3e) |
+| groth16-verifier | [1785d5a3…](https://testnet.cspr.live/contract-package/1785d5a368b2daa41c490dd83059d8ba8a62631b6112f5fed19e693c82d1d0fd) |
+| credential-registry | [74148da7…](https://testnet.cspr.live/contract-package/74148da7b68ce51e4dfa822af7106daaea7140862106a7b675057caf9ee404ce) |
+| challenge | [8cddad30…](https://testnet.cspr.live/contract-package/8cddad302d2d882070d62f581e6118ab371a24ced22294b81454754c2a5fd07e) |
+| writ_registry_filter (CEP-78 hook) | [0b1f806b…](https://testnet.cspr.live/contract-package/0b1f806b13712752c6740890cb9fae33aa782d47b1c858564d97248c43407fb5) |
+| writ-cep78 | [2ce2ff55…](https://testnet.cspr.live/contract-package/2ce2ff55ebdeb1e72b85dc0634c77ff7a256fb98086fab6d2969af78386e7c97) |
+| writ-token | [200cd183…](https://testnet.cspr.live/contract-package/200cd1830a58a5e6154bf2ab31168523d7e90fe06d166fd9650712aa120c4e1b) |
 
 Key transaction evidence:
 
 | Event | TX |
 |---|---|
-| Sanctioned sender reverts (filter user-error 159) | [3448182c…](https://testnet.cspr.live/deploy/3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d) |
-| Ineligible recipient reverts (user-error 159) | [ce0f1a3a…](https://testnet.cspr.live/deploy/ce0f1a3a03131a4de663d04d60243aa4c261a9f0eab24acf55a4f5af9a26a2ad) |
-| Regulated holder attest (Poseidon commitment on-chain) | [f3fd7cbb…](https://testnet.cspr.live/deploy/f3fd7cbba19ef1195d70df72bc3ea073da4b6f78899c261ffadbc305d7a86645) |
-| Fraud slash (resolve -> Groth16 FALSE -> slash 500, 110 CSPR treasury transfer, verify consumed 80.37 CSPR) | [0ae7aecd…](https://testnet.cspr.live/deploy/0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83) |
-| Post-fraud transfer reverts (RevokedFraud holder, error 159) | [8922e979…](https://testnet.cspr.live/deploy/8922e979320ba28f38cab32b107893a5f868ec07281c9790c8b57d2b2c5786f9) |
+| Sanctioned sender reverts (filter user-error 159) | [1af2d7e6…](https://testnet.cspr.live/deploy/1af2d7e6821159b83819fed115ba072b7f10090c385ca18e1d5c71d288f4e7f3) |
+| Ineligible recipient reverts (user-error 159) | [af706a71…](https://testnet.cspr.live/deploy/af706a71f42e838ea7029785a2b80803798ebb34f61b00d5804119615a1bdf35) |
+| Regulated holder attest (Poseidon commitment on-chain) | [a2dc0c8a…](https://testnet.cspr.live/deploy/a2dc0c8ad4f90f5b9dd86ada48498a2869c1570d75c5b4bb3f542f6cdb70296b) |
+| Fraud slash (resolve -> Groth16 FALSE -> slash 500, 110 CSPR treasury transfer, resolve consumed 95.1 CSPR incl. the pairing-verify cross-call) | [79cce54a…](https://testnet.cspr.live/deploy/79cce54a4fbd125ee81c120150c77b8eda66d5acc16331c94790e2c51ad9193f) |
+| Post-fraud transfer reverts (RevokedFraud holder, error 159) | [0013547b…](https://testnet.cspr.live/deploy/0013547bf9a13134d14485db39658c9a0576a9e12580129524443f415a00c056) |
 
 ---
 
@@ -290,7 +290,7 @@ The following claims are explicitly out of scope and are not made anywhere in th
 - A 24/7 re-screening daemon over the entire holder base. The agent re-screens at onboarding and on-demand; there is no continuous watchtower service.
 - x402 live wire. x402 is designed into the payment path for live compliance data but is not yet wired.
 - An independent verifier quorum. The demo's two attestation signatures come from one server process (single trust domain); the on-chain 2-of-3 threshold check is real, signer independence is roadmap.
-- Challenge-time enforcement of issuer/asset/root. The challenge verifies the stored proof for the stored public inputs only; canonical pinning is enforced at onboarding (service) and, in the hardened registry code, on-chain via `set_canonical_inputs` — the deployed instance predates that entrypoint.
+- Challenge-time enforcement of issuer/asset/root. The challenge verifies the stored proof for the stored public inputs only. Canonical enforcement lives elsewhere: on-chain via `set_canonical_inputs` (pinned on the live V5 registry, tx `09975872`) and at onboarding in the service. The asset id is bound by the quorum-signed message and the per-asset credential key rather than by a public-input comparison.
 - A token burn. The slash remainder is a transfer to a spendable treasury account.
 
 **The harshest fair criticism of the current system**: the eligibility being attested is demo-grade end-to-end — a demo issuer signs the claim set for any connected wallet, and the attestation trust domain is a single operator. What the cryptography and the chain enforce around that demo core (holder-held secrets, real stored proofs, recipient-aware transfer gating, economic slashing of invalid proofs, on-chain expiry) is real and tested; the issuer and signer-independence boundaries are the two production gaps, and both are stated on every surface.

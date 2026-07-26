@@ -323,10 +323,10 @@ None of these are screens or features *inside* Writ — folding them in is the f
 Explorer: `https://testnet.cspr.live/deploy/<hash>`
 
 - Sanctioned sender's transfer reverts on-chain (kicker):
-  `3448182cb432dd4278551dc378a8485c7ee9cb09b3c619101ea37efb34a17b1d`
+  `1af2d7e6821159b83819fed115ba072b7f10090c385ca18e1d5c71d288f4e7f3`
 - Fraudulent attestation slashed, 110 CSPR transferred to the treasury account (fraud slash):
-  `0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83`
+  `79cce54a4fbd125ee81c120150c77b8eda66d5acc16331c94790e2c51ad9193f`
 - Post-fraud transfer reverts (RevokedFraud holder):
-  `8922e979320ba28f38cab32b107893a5f868ec07281c9790c8b57d2b2c5786f9`
+  `0013547bf9a13134d14485db39658c9a0576a9e12580129524443f415a00c056`
 - Regulated holder attest (genuine Poseidon commitment):
-  `f3fd7cbba19ef1195d70df72bc3ea073da4b6f78899c261ffadbc305d7a86645`
+  `a2dc0c8ad4f90f5b9dd86ada48498a2869c1570d75c5b4bb3f542f6cdb70296b`

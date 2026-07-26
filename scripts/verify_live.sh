@@ -61,7 +61,7 @@ done <<< "$CHECKS"
 
 # treasury-transfer check on the slash tx: 110 CSPR to the treasury account
 slash=$(curl -s -X POST "$NODE" -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"info_get_deploy","params":{"deploy_hash":"0ae7aecdf9510e34db2e6a2f392630843bbd11176f067124d01f2012d0e00c83"}}')
+  -d '{"jsonrpc":"2.0","id":1,"method":"info_get_deploy","params":{"deploy_hash":"79cce54a4fbd125ee81c120150c77b8eda66d5acc16331c94790e2c51ad9193f"}}')
 printf '%s' "$slash" | python3 -c '
 import json, sys
 d = json.load(sys.stdin)["result"]
